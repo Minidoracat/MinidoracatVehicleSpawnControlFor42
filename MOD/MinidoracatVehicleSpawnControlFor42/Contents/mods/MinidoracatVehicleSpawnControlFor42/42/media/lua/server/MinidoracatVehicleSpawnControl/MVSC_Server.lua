@@ -16,6 +16,8 @@ S.CONFIG = DIR .. "config.json"
 S.CATALOG = DIR .. "catalog.json"
 S.STATUS = DIR .. "status.json"
 S.STATE = DIR .. "state.json"
+S.HISTORY = DIR .. "history.json"
+S.HISTORY_MAX = 50
 S.BACKUP_SLOTS = 10
 S.POLL_MS = 60000
 
@@ -80,8 +82,8 @@ function S.collectScripts()
                 if m ~= src then overrides[#overrides + 1] = m end
             end
         end
-        out[full] = { name = displayName(s), source = src, sourceName = sourceName(src),
-            overriddenBy = overrides, skins = s:getSkinCount() }
+        out[full] = { name = displayName(s), nameKey = tostring(s:getCarModelName() or s:getName()), source = src,
+            sourceName = sourceName(src), overriddenBy = overrides, skins = s:getSkinCount() }
     end
     return out
 end
@@ -148,40 +150,82 @@ end
 local function writeStatus(ok, source, errors, warnings)
     local newList = {}
     for full in pairs(S.info.isNew) do newList[#newList + 1] = full end
-    writeJson(S.STATUS, { ok = ok, source = source, revision = S.state.revision, checkedAt = getTimestampMs(),
-        errors = errors or {}, warnings = warnings or {}, newVehicles = M.sortSafe(newList) })
+    S.status = { ok = ok, source = source, revision = S.state.revision, checkedAt = getTimestampMs(),
+        errors = errors or {}, warnings = warnings or {}, newVehicles = M.sortSafe(newList) }
+    writeJson(S.STATUS, S.status)
 end
 
+-- 接受的設定依修訂號輪流寫進 10 個槽（Lua 沒有刪檔 API）；回傳槽號供變更紀錄還原
 local function backup(text)
     local slot = S.state.revision % S.BACKUP_SLOTS + 1
     S.writeText(DIR .. "backups/config-" .. slot .. ".json", text)
+    return slot
 end
 
--- 解析＋驗證＋套用一份設定檔文字。失敗時保留目前生效的設定。回 ok, errors。
-function S.applyText(text, source)
+function S.readBackup(slot)
+    return S.readText(DIR .. "backups/config-" .. slot .. ".json")
+end
+
+local function addHistory(entry)
+    local list = S.history
+    list[#list + 1] = entry
+    while #list > S.HISTORY_MAX do table.remove(list, 1) end
+    writeJson(S.HISTORY, list)
+end
+
+-- 通知線上管理員（MVSC_ServerNet 提供）。通知失敗不能中斷套用：此時修訂號已遞增、表已改好，
+-- 中斷會讓 init 半途停下、輪詢永遠不啟動（E2E panel-mp 實踩：開服時 getOnlinePlayers 丟 NPE）。
+local function notify(ok, source, errors)
+    if not S.notify then return end
+    local okCall, err = pcall(S.notify, ok, source, errors)
+    if not okCall then print(M.LOG .. "notify failed: " .. tostring(err)) end
+end
+
+-- 解析＋驗證＋套用一份設定檔文字。失敗時保留目前生效的設定（也不寫檔）。
+-- opts.write＝驗證通過後才寫入 config.json（面板套用、還原）；opts.user＝操作者（變更紀錄）。回 ok, errors。
+function S.applyText(text, source, opts)
+    opts = opts or {}
     local raw, perr = M.jsonDecode(text)
+    local cfg, errors, warnings
     if raw == nil then
-        print(M.LOG .. "config.json rejected (" .. source .. "): " .. tostring(perr))
-        writeStatus(false, source, { tostring(perr) }, {})
-        return false, { tostring(perr) }
+        errors, warnings = { tostring(perr) }, {}
+    else
+        cfg, errors, warnings = M.validate(raw, { zones = S.base.zones, aliasOf = S.base.aliasOf, scripts = S.info.scripts })
     end
-    local cfg, errors, warnings = M.validate(raw, { zones = S.base.zones, aliasOf = S.base.aliasOf, scripts = S.info.scripts })
     if not cfg then
-        for _, e in ipairs(errors) do print(M.LOG .. "config.json rejected (" .. source .. "): " .. e) end
-        writeStatus(false, source, errors, warnings)
+        for _, e in ipairs(errors) do print(M.LOG .. "config rejected (" .. source .. "): " .. e) end
+        if not opts.write then writeStatus(false, source, errors, warnings) end -- 面板送錯只回給送的人，不蓋掉檔案狀態
+        notify(false, source, errors)
         return false, errors
+    end
+    if opts.write then
+        S.writeText(S.CONFIG, text)
+        S.lastText = S.readText(S.CONFIG) -- 讀回值當輪詢基準（readLine 會吃掉結尾換行）
     end
     S.cfg = cfg
     local built = M.build(S.base, cfg, S.info)
     writeLive(built)
     S.state.revision = S.state.revision + 1
     writeJson(S.STATE, S.state)
-    backup(text)
+    local slot = backup(text)
     writeCatalog(built)
     writeStatus(true, source, {}, warnings)
-    for _, w in ipairs(warnings) do print(M.LOG .. "config.json warning: " .. w) end
-    print(M.LOG .. "applied config revision " .. S.state.revision .. " (" .. source .. ")")
+    addHistory({ revision = S.state.revision, at = getTimestampMs(), source = source, user = opts.user or "", slot = slot })
+    for _, w in ipairs(warnings) do print(M.LOG .. "config warning: " .. w) end
+    print(M.LOG .. "applied config revision " .. S.state.revision .. " (" .. source .. (opts.user and (", " .. opts.user) or "") .. ")")
+    notify(true, source, {})
     return true, {}
+end
+
+local function loadHistory()
+    local text = S.readText(S.HISTORY)
+    local list = text and M.jsonDecode(text)
+    if type(list) ~= "table" then return {} end
+    local out = {}
+    for _, e in ipairs(list) do
+        if type(e) == "table" and tonumber(e.revision) then out[#out + 1] = e end
+    end
+    return out
 end
 
 -- ---------------------------------------------------------------- 開服與輪詢
@@ -195,6 +239,7 @@ function S.init()
     local scripts = {}
     for full in pairs(catalog) do scripts[full] = true end
     S.state = loadState()
+    S.history = loadHistory()
     S.info = { catalog = catalog, scripts = scripts, sourceOf = {}, isNew = markSeen(S.state, scripts, getTimestampMs()) }
     for full, s in pairs(catalog) do S.info.sourceOf[full] = s.source end
     S.cfg = M.defaultConfig()

@@ -26,6 +26,10 @@ M.ZONE_PARAMS = {
     baseVehicleQuality = { 0, 2 },
 }
 
+-- 區域沒寫這個欄位時引擎用的值（VehicleType.java:20-36）；面板顯示用
+M.PARAM_DEFAULTS = { spawnRate = 16, chanceToSpawnNormal = 80, chanceToSpawnBurnt = 0, chanceToSpawnSpecial = 5,
+    chanceToPartDamage = 0, chanceToSpawnKey = 70, baseVehicleQuality = 1.0 }
+
 function M.defaultConfig()
     return { schema = M.SCHEMA, newVehicles = "keep", sources = {}, vehicles = {}, zones = {} }
 end
@@ -253,4 +257,58 @@ function M.build(base, cfg, info)
         out[name] = { vehicles = vehicles, params = params }
     end
     return out
+end
+
+-- ---------------------------------------------------------------- 面板共用
+function M.copy(v)
+    if type(v) ~= "table" or v == M.JSON_NULL then return v end
+    local out = {}
+    for k, x in pairs(v) do out[k] = M.copy(x) end
+    return out
+end
+
+-- validate 產出的結構轉回 config.json 的格式（面板送回伺服器、寫檔）
+function M.toRaw(cfg)
+    local raw = { schema = M.SCHEMA, newVehicles = cfg.newVehicles, sources = M.copy(cfg.sources),
+        vehicles = M.copy(cfg.vehicles), zones = {} }
+    for name, z in pairs(cfg.zones) do
+        local e = M.copy(z.params)
+        local hasW, hasS = false, false
+        for _ in pairs(z.weights) do hasW = true end
+        for _ in pairs(z.skins) do hasS = true end
+        if hasW then e.weights = M.copy(z.weights) end
+        if hasS then e.skins = M.copy(z.skins) end
+        raw.zones[name] = e
+    end
+    return raw
+end
+
+-- 兩份 raw 設定的差異路徑（排序後）；面板用來數「未套用變更」並列出清單
+local function diffInto(a, b, path, out)
+    -- 一邊沒有、一邊是表：當成空表比，才會逐欄列出（整個區域新增時不能只算一項）
+    if a == nil and type(b) == "table" then a = {} end
+    if b == nil and type(a) == "table" then b = {} end
+    local ta, tb = type(a) == "table", type(b) == "table"
+    if not ta and not tb then
+        if a ~= b then out[#out + 1] = path end
+        return
+    end
+    if ta ~= tb then out[#out + 1] = path return end
+    local keys = {}
+    for k in pairs(a) do keys[k] = true end
+    for k in pairs(b) do keys[k] = true end
+    for k in pairs(keys) do
+        local sub = path == "" and tostring(k) or (path .. "." .. tostring(k))
+        local va, vb = a[k], b[k]
+        -- 空表與不存在視為相同（例如 zones.x.weights = {}）
+        local ea = type(va) == "table" and M.sortedKeys(va)[1] == nil
+        local eb = type(vb) == "table" and M.sortedKeys(vb)[1] == nil
+        if not ((va == nil or ea) and (vb == nil or eb)) then diffInto(va, vb, sub, out) end
+    end
+end
+
+function M.diff(a, b)
+    local out = {}
+    diffInto(a, b, "", out)
+    return M.sortSafe(out)
 end

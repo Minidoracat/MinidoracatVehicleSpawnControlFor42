@@ -96,6 +96,33 @@ function getModInfoByID(id)
     return nil
 end
 
+-- 假網路：ServerNet 以 sendServerCommand 回覆，送到本機玩家就交給 Client（模擬 MP）
+local ME = { getUsername = function() return "admin1" end }
+local admin = true
+ME.getRole = function() return { hasCapability = function(_, cap) return admin and cap == "SandboxOptions" end } end
+Capability = { SandboxOptions = "SandboxOptions" }
+function getPlayer() return ME end
+-- 真引擎：開服套用（OnInitGlobalModData）時 udpEngine 還沒建立，getOnlinePlayers 會 NPE（GameServer.java:3560）
+local serverStarted = false
+function getOnlinePlayers()
+    if not serverStarted then error("NullPointerException: GameServer.udpEngine is null") end
+    return javaList({ ME })
+end
+local sent = {}
+local function deepcopy(v)
+    if type(v) ~= "table" then return v end
+    local o = {}
+    for k, x in pairs(v) do o[k] = deepcopy(x) end
+    return o
+end
+function sendServerCommand(player, module, cmd, args)
+    sent[#sent + 1] = cmd
+    if player == ME and MinidoracatVehicleSpawnControl.Client then
+        MinidoracatVehicleSpawnControl.Client.onServerCommand(module, cmd, deepcopy(args)) -- 網路序列化＝複製
+    end
+end
+function sendClientCommand() error("client uses direct path when not isClient()") end
+
 local resets = 0
 VehicleType = { Reset = function() resets = resets + 1 end }
 
@@ -129,6 +156,8 @@ end
 require "MinidoracatVehicleSpawnControl/MVSC_Json"
 require "MinidoracatVehicleSpawnControl/MVSC_Core"
 require "MinidoracatVehicleSpawnControl/MVSC_Server"
+require "MinidoracatVehicleSpawnControl/MVSC_ServerNet"
+require "MinidoracatVehicleSpawnControl/MVSC_Client"
 local M = MinidoracatVehicleSpawnControl
 local S = M.Server
 local DIR = "MinidoracatVehicleSpawnControl/"
@@ -156,6 +185,8 @@ end
 -- ===== 情境 =====
 print("情境一：首次開服建立預設設定，原始分布不變")
 fire("OnInitGlobalModData", true)
+serverStarted = true
+check(S.nextPoll ~= nil, "開服流程完整跑完（輪詢已排程）")
 check(FS[DIR .. "config.json"] ~= nil, "建立 config.json")
 check(resets == 1, "套用後呼叫一次 VehicleType.Reset")
 check(live("parkingstall")["Base.CarNormal"].spawnChance == 20 and live("parkingstall")["MilPack.M35"].spawnChance == 2, "預設設定不改權重")
@@ -243,6 +274,100 @@ check(readJson(DIR .. "status.json").ok == false and readJson(DIR .. "catalog.js
 print("情境九：JSON 編解碼往返")
 local round = M.jsonDecode(M.jsonEncode({ a = { 1, 2 }, b = "中文\n\"x\"", c = 0.25, d = {} }, true))
 check(round and round.a[2] == 2 and round.b == "中文\n\"x\"" and round.c == 0.25, "縮排輸出可解回原值")
+
+print("情境十：沒有權限的人拿不到資料也不能套用")
+freshDistribution()
+FS[DIR .. "config.json"] = "{}"
+S.base = nil
+fire("OnInitGlobalModData", false)
+local Cl = M.Client
+local N = M.ServerNet
+N.ZONE_BATCH, N.VEHICLE_BATCH = 2, 2 -- 小批次，確保多段組裝真的被走到
+admin = false
+sent = {}
+Cl.request()
+check(sent[1] == "denied" and #sent == 1 and Cl.data == nil, "非管理員只收到 denied")
+local revBefore = readJson(DIR .. "status.json").revision
+Cl.data = { revision = revBefore }
+Cl.draft = { zones = { parkingstall = { spawnRate = 99 } } }
+Cl.apply(true)
+check(readJson(DIR .. "status.json").revision == revBefore and VehicleZoneDistribution.parkingstall.spawnRate == nil, "非管理員強制套用也被伺服器拒絕")
+Cl.data, Cl.draft = nil, nil
+
+print("情境十一：管理員分批收到完整快照")
+admin = true
+sent = {}
+Cl.request()
+local zoneMsgs = 0
+for _, c in ipairs(sent) do if c == "zones" then zoneMsgs = zoneMsgs + 1 end end
+local zoneCount = 0
+for _ in pairs(Cl.data.base.zones) do zoneCount = zoneCount + 1 end
+check(zoneMsgs == 2 and zoneCount == 4 and Cl.data.base.aliasOf.business2 == "business", "區域分批送達並組回別名（" .. zoneMsgs .. " 批）")
+check(Cl.data.catalog["MilPack.M35"].display == "MilPack.M35" and Cl.data.catalog["Base.CarNormal"].display == "Chevalier Nyala", "客戶端用自己的語言翻譯車名，缺翻譯退回 script 名")
+check(Cl.data.revision == S.state.revision and #Cl.changes() == 0, "草稿等於伺服器設定")
+
+print("情境十二：面板編輯後套用，伺服器寫檔並記錄是誰改的")
+Cl.setWeight("parkingstall", "Base.CarNormal", 55)
+Cl.setParam("parkingstall", "spawnRate", 40)
+Cl.setEnabled("MilPack.M35", false)
+check(#Cl.changes() == 3, "草稿記錄三項變更（" .. #Cl.changes() .. "）")
+local eff = Cl.effective()
+check(eff.parkingstall.vehicles["MilPack.M35"] == nil and eff.parkingstall.vehicles["Base.CarNormal"].spawnChance == 55, "客戶端即時算出套用後結果")
+Cl.setWeight("parkingstall", "Base.SmallCar", 15)
+check(#Cl.changes() == 3, "改回原始權重不算變更")
+local rev0 = S.state.revision
+local draftGap = true
+Cl.on(function(ev) if ev == "applyResult" and Cl.draft == nil then draftGap = false end end)
+Cl.apply(false)
+check(draftGap, "套用後到新快照送達前草稿一直存在（面板每幀都讀它）")
+check(S.state.revision == rev0 + 1 and live("parkingstall")["Base.CarNormal"].spawnChance == 55 and VehicleZoneDistribution.parkingstall.spawnRate == 40, "伺服器套用面板的設定")
+local disk = M.jsonDecode(FS[DIR .. "config.json"])
+check(disk.zones.parkingstall.weights["Base.CarNormal"] == 55 and disk.vehicles["MilPack.M35"].enabled == false, "config.json 寫入面板的設定")
+local hist = readJson(DIR .. "history.json")
+check(hist[#hist].source == "panel" and hist[#hist].user == "admin1" and hist[#hist].revision == rev0 + 1, "變更紀錄記下來源與操作者")
+check(Cl.data.revision == rev0 + 1 and #Cl.changes() == 0, "套用後重新載入，沒有殘留的未套用變更")
+local resetsNow = resets
+advance(61000)
+check(resets == resetsNow, "面板寫的檔不會被輪詢當成外部修改再套一次")
+
+print("情境十三：編輯期間檔案被外部修改 → 提示過期，確認後才覆寫")
+Cl.setWeight("parkingstall", "Base.CarNormal", 77)
+local cfgNow = M.jsonDecode(FS[DIR .. "config.json"])
+cfgNow.zones.police = { spawnRate = 5 }
+writeConfig(cfgNow)
+advance(61000)
+check(Cl.stale == S.state.revision and Cl.weightOf("parkingstall", "Base.CarNormal") == 77, "外部修改只提示，不蓋掉編輯中的草稿")
+local results = {}
+Cl.on(function(ev, a) if ev == "applyResult" then results[#results + 1] = a end end)
+Cl.apply(false)
+check(results[1] and results[1].stale == true and live("parkingstall")["Base.CarNormal"].spawnChance == 55, "未確認前拒絕覆寫")
+Cl.apply(true)
+check(results[2] and results[2].ok and live("parkingstall")["Base.CarNormal"].spawnChance == 77, "確認後覆寫")
+
+print("情境十四：面板送來無效設定不會寫檔，也不蓋掉檔案狀態")
+local diskBefore = FS[DIR .. "config.json"]
+local statusBefore = FS[DIR .. "status.json"]
+Cl.draft.zones.parkingstall.spawnRate = 500
+Cl.apply(false)
+check(results[3] and results[3].ok == false and #results[3].errors == 1, "回報錯誤給送出的人")
+check(FS[DIR .. "config.json"] == diskBefore and FS[DIR .. "status.json"] == statusBefore, "config.json 與 status.json 都沒被改")
+Cl.discard()
+check(#Cl.changes() == 0, "放棄變更回到伺服器設定")
+
+print("情境十五：還原到舊修訂")
+local target = S.state.revision - 2
+Cl.restore(target)
+check(results[4] and results[4].ok and live("parkingstall")["Base.CarNormal"].spawnChance == 55, "還原後生效的是舊修訂的設定")
+check(readJson(DIR .. "history.json")[#readJson(DIR .. "history.json")].source == "restore", "還原也記進變更紀錄")
+Cl.restore(S.state.revision - 10)
+check(results[5] and results[5].ok == false, "超過保留範圍的修訂拒絕還原")
+
+print("情境十六：toRaw／diff 往返")
+local raw = { schema = 1, newVehicles = "keep", sources = {}, vehicles = { ["Base.CarNormal"] = { enabled = false } },
+    zones = { parkingstall = { spawnRate = 20, weights = { ["Base.SmallCar"] = 3 } } } }
+local cfgv = M.validate(raw, { zones = S.base.zones, aliasOf = S.base.aliasOf, scripts = S.info.scripts })
+check(#M.diff(raw, M.toRaw(cfgv)) == 0, "validate 後轉回原格式沒有差異")
+check(M.diff(raw, { schema = 1, newVehicles = "keep", sources = {}, vehicles = {}, zones = {} })[1] ~= nil, "有差異時列出路徑")
 
 print()
 if failures > 0 then
