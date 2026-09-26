@@ -61,6 +61,25 @@ function Tab:groupOf(full)
     return M.sortSafe(members)
 end
 
+-- 塗裝色票：3D 預覽只能顯示第 0 款（AGENTS 踩坑），各款改以原始貼圖縮圖呈現。
+-- 名稱只能由 BaseVehicle:getSkin() 取得：建一台不加入世界的車逐款讀（Skin 類別沒暴露給 Lua）
+local skinCache = {}
+local function skinsOf(full)
+    if skinCache[full] == nil then
+        local names = {}
+        local ok = pcall(function()
+            local bv = BaseVehicle.new(getCell())
+            bv:setScript(full)
+            for i = 0, bv:getSkinCount() - 1 do
+                bv:setSkinIndex(i)
+                names[#names + 1] = bv:getSkin()
+            end
+        end)
+        skinCache[full] = ok and names or {}
+    end
+    return skinCache[full]
+end
+
 -- ---------------------------------------------------------------- 建立
 function Tab:new(x, y, w, h)
     local o = ISPanel:new(x, y, w, h)
@@ -197,6 +216,8 @@ function Tab:select(full)
     j:fromLua2("setObjectVisible", "v", true)
     -- 初始化當下模型若還沒載入，場景會一直空白直到再次 setVehicleScript（UI3DScene.java:6101-6105）
     self.resetAt = 30
+    self.swatches, self.peek = nil, nil
+    self.scene:setVisible(true)
     self:rebuildVehicles()
     self:rebuildZones()
 end
@@ -349,6 +370,18 @@ function Tab:prerender()
             if self.selectedFull then self.scene.javaObject:fromLua2("setVehicleScript", "v", self.selectedFull) end
         end
     end
+    -- 滑到色票上：暫時收起 3D 場景，在同位置放大該款貼圖（場景是子元件，會蓋住父層繪製）
+    local peek
+    if self.swatches then
+        local mx, my = self:getMouseX(), self:getMouseY()
+        for i, r in ipairs(self.swatches) do
+            if mx >= r[1] and mx < r[1] + r[3] and my >= r[2] and my < r[2] + r[3] then peek = i end
+        end
+    end
+    if peek ~= self.peek then
+        self.peek = peek
+        self.scene:setVisible(peek == nil)
+    end
     for i, c in ipairs(self.cols) do
         W.card(self, c[1], 0, c[2], self.height)
         local title = ({ T("ColVehicles"), T("ColPreview"), T("WhereSpawns") })[i]
@@ -360,8 +393,20 @@ function Tab:render()
     local FH = U.fontH()
     U.text(self, T("ColModels"), IN, self.vehTop, "textMuted")
     local mx, mw = self.cols[2][1], self.cols[2][2]
-    U.textRight(self, T("DragHint"), mx + mw - IN, IN, "textFaint")
     local full = self.selectedFull
+    local names = full and skinsOf(full) or {}
+    local peek = self.peek and self.swatches and self.swatches[self.peek]
+    if peek then
+        U.textRight(self, T("SkinPeek", tostring(self.peek), tostring(#names)), mx + mw - IN, IN, "accent")
+        local sc = self.scene
+        U.fill(self, sc:getX(), sc:getY(), sc.width, sc.height, sc.backgroundColor, "rect")
+        if peek[4] then
+            local size = math.min(sc.width, sc.height)
+            self:drawTextureScaled(peek[4], sc:getX() + math.floor((sc.width - size) / 2), sc:getY(), size, size, 1, 1, 1, 1)
+        end
+    else
+        U.textRight(self, T("DragHint"), mx + mw - IN, IN, "textFaint")
+    end
     local x, y = mx + IN, self.infoY
     if not (full and C.data and C.data.catalog[full]) then
         U.text(self, T("PickVehicle"), x, y, "textMuted")
@@ -379,8 +424,36 @@ function Tab:render()
     if not C.isEnabled(full) then bx = bx + W.badge(self, T("StatusDisabled"), bx, y, "errorText") + 6 end
     if v.new then W.badge(self, T("BadgeNew"), bx, y, "accent") end
     y = y + 28
-    U.text(self, U.fit(T("PreviewSkinNote"), mw - IN * 2), x, y, "textFaint")
+    if #names > 1 then
+        U.text(self, U.fit(T("PreviewSkinHover"), mw - IN * 2), x, y, "textFaint")
+        y = y + FH + 8
+        self:drawSwatches(names, x, y, mw - IN * 2, self.height - IN - y)
+    else
+        U.text(self, U.fit(T("PreviewSkinNote"), mw - IN * 2), x, y, "textFaint")
+    end
     if #self.zoneRows == 0 then U.text(self, U.fit(T("NoZones"), self.zoneBox.width), self.zoneBox:getX(), self.zoneBox:getY() + 4, "textMuted") end
+end
+
+-- 依可用空間縮放色票，塞不下的列不畫（12 款在 1280x780 面板約兩列）
+function Tab:drawSwatches(names, x, y, w, h)
+    local gap, s = 6, 64
+    local cols = 1
+    while true do
+        cols = math.max(1, math.floor((w + gap) / (s + gap)))
+        if s <= 28 or math.ceil(#names / cols) * (s + gap) - gap <= h then break end
+        s = s - 4
+    end
+    self.swatches = {}
+    for i, name in ipairs(names) do
+        local sx = x + ((i - 1) % cols) * (s + gap)
+        local sy = y + math.floor((i - 1) / cols) * (s + gap)
+        if sy + s > y + h then break end
+        local tex = getTexture("media/textures/" .. name .. ".png")
+        U.fill(self, sx, sy, s, s, "well", "rect")
+        if tex then self:drawTextureScaled(tex, sx, sy, s, s, 1, 1, 1, 1) end
+        U.border(self, sx, sy, s, s, self.peek == i and U.COL.accent or { r = 1, g = 1, b = 1, a = 0.15 }, "rect")
+        self.swatches[i] = { sx, sy, s, tex }
+    end
 end
 
 function Tab.drawSourceRow(list, y, item)
