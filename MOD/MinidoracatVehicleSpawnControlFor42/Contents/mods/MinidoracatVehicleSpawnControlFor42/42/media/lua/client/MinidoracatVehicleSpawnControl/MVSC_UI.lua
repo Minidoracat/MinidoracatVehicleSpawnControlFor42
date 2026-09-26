@@ -68,7 +68,19 @@ end
 function U.num(v)
     if v == nil then return "-" end
     if v == math.floor(v) then return tostring(math.floor(v)) end
-    return string.format("%.2f", v)
+    local s = string.format("%.2f", v):gsub("0+$", "")
+    return s
+end
+
+-- 來源（MOD）顯示名：原版一律叫「原版」，其他用 MOD 名；目錄換新時重建快取
+local packNames, packData
+function U.packName(src)
+    if src == M.VANILLA then return U.T("Source_pz-vanilla") end
+    if packData ~= M.Client.data then
+        packData, packNames = M.Client.data, {}
+        for _, v in pairs(packData and packData.catalog or {}) do packNames[v.source] = v.sourceName end
+    end
+    return packNames[src] or src
 end
 
 function U.pct(v)

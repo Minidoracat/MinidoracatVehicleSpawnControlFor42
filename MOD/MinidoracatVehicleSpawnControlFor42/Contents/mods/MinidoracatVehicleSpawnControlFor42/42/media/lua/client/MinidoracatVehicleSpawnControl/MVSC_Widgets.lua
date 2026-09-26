@@ -4,6 +4,7 @@
 require "ISUI/ISPanel"
 require "ISUI/ISButton"
 require "ISUI/ISTextEntryBox"
+require "ISUI/ISToolTip"
 require "MinidoracatVehicleSpawnControl/MVSC_UI"
 
 local M = MinidoracatVehicleSpawnControl
@@ -34,15 +35,17 @@ function W.card(el, x, y, w, h)
     U.border(el, x, y, w, h, { r = 1, g = 1, b = 1, a = 0.08 })
 end
 
--- 徽章：pill 形小標籤，一律「圖示或符號＋文字」，不只靠顏色
-function W.badge(el, text, x, y, token)
+-- 徽章：pill 形小標籤，一律「圖示或符號＋文字」，不只靠顏色；icon 可省略
+function W.badge(el, text, x, y, token, icon)
     local tw = getTextManager():MeasureStringX(UIFont.Small, text)
+    local iw = (icon and ICONS) and 16 or 0
     local h = 20
     local c = U.COL[token or "textMuted"]
-    U.fill(el, x, y, tw + 16, h, { r = c.r, g = c.g, b = c.b, a = 0.14 }, "pill")
-    U.border(el, x, y, tw + 16, h, { r = c.r, g = c.g, b = c.b, a = 0.55 }, "pill")
-    U.text(el, text, x + 8, y + math.floor((h - U.fontH()) / 2), token or "textMuted")
-    return tw + 16
+    U.fill(el, x, y, tw + 16 + iw, h, { r = c.r, g = c.g, b = c.b, a = 0.14 }, "pill")
+    U.border(el, x, y, tw + 16 + iw, h, { r = c.r, g = c.g, b = c.b, a = 0.55 }, "pill")
+    if iw > 0 then W.icon(el, icon, x + 7, y + 4, 12, token or "textMuted") end
+    U.text(el, text, x + 8 + iw, y + math.floor((h - U.fontH()) / 2), token or "textMuted")
+    return tw + 16 + iw
 end
 
 -- ---------------------------------------------------------------- 按鈕
@@ -84,6 +87,9 @@ function Button:render()
     elseif s == "ghost" then
         if hover or self.active then U.fill(self, 0, 0, w, h, self.active and "selected" or "hover") end
         textToken = self.active and "text" or "textMuted"
+    elseif s == "value" then
+        -- 步進器中間的數值：像文字，懸停才出底（點下去可輸入）
+        if hover then U.fill(self, 0, 0, w, h, "hover") end
     else
         U.fill(self, 0, 0, w, h, hover and { r = 1, g = 1, b = 1, a = 0.10 } or { r = 1, g = 1, b = 1, a = 0.05 })
         U.border(self, 0, 0, w, h, self.active and "accent" or { r = 1, g = 1, b = 1, a = 0.16 })
@@ -102,7 +108,12 @@ function Button:render()
     if tw > 0 then
         local fit = U.fit(title, w - 12 - (hasIcon and iconSize + 6 or 0))
         U.text(self, fit, x, math.floor((h - fh) / 2), textToken)
+        -- 被截斷時用原版按鈕提示顯示全文（ISButton.lua:316-343）；也保留呼叫端指定的提示
+        self.tooltip = fit ~= title and title or self.hint
+    else
+        self.tooltip = self.hint
     end
+    self:updateTooltip()
 end
 
 function Button:setUsable(on) self.enable = on end
@@ -223,9 +234,13 @@ function Slider:render()
 end
 
 -- ---------------------------------------------------------------- 勾選框（在清單列裡直接畫）
+-- on：true／false／"some"（表頭三態：部分選取畫橫線）
 function W.checkbox(el, x, y, on)
     local s = 16
-    if on then
+    if on == "some" then
+        U.fill(el, x, y, s, s, "accent")
+        U.fill(el, x + 4, y + 7, 8, 2, "onAccent", "rect")
+    elseif on then
         U.fill(el, x, y, s, s, "accent")
         U.fill(el, x + 4, y + 7, 3, 3, "onAccent", "rect")
         U.fill(el, x + 6, y + 9, 3, 3, "onAccent", "rect")
@@ -360,6 +375,12 @@ function Dialog:createChildren()
         self.entry:instantiate()
         self.entry:setOnlyNumbers(true)
         self:addChild(self.entry)
+        -- 開啟就能直接輸入：聚焦並全選預設值，Enter 確定、Esc 取消（ISTextEntryBox.lua:16,146,278）
+        local dialog = self
+        self.entry:focus()
+        self.entry:selectAll()
+        self.entry.onCommandEntered = function() dialog:onConfirm() end
+        self.entry.onOtherKey = function(_, key) if key == Keyboard.KEY_ESCAPE then dialog:onCancel() end end
     end
     local bw = 140
     local x = self.width - 20 - bw
@@ -475,18 +496,174 @@ function Window:prerender()
     U.fill(self, 0, 0, self.width, self.height, { r = 0.075, g = 0.075, b = 0.085, a = 0.97 })
     U.border(self, 0, 0, self.width, self.height, { r = 1, g = 1, b = 1, a = 0.12 })
     local x = 18
-    if W.icon(self, "steeringwheel", x, 15, 20, "accent") then x = x + 30 end
+    if W.icon(self, "steeringwheel", x, 15, 20, "text") then x = x + 30 end
     U.text(self, self.title or "", x, math.floor((self.headerH - U.fontH(UIFont.Medium)) / 2), "text", UIFont.Medium)
     if self.badge then
         local bw = getTextManager():MeasureStringX(UIFont.Small, self.badge) + 16 + (ICONS and 22 or 0)
         local bx = self.width - 60 - bw
         U.fill(self, bx, 14, bw, 20, { r = 1, g = 1, b = 1, a = 0.06 }, "pill")
         local tx = bx + 8
-        if W.icon(self, "shieldCheck", tx, 16, 16, "accent") then tx = tx + 22 end
+        if W.icon(self, "shieldCheck", tx, 16, 16, "textMuted") then tx = tx + 22 end
         U.text(self, self.badge, tx, 14 + math.floor((20 - U.fontH()) / 2), "textMuted")
     end
 end
 
 function Window:close()
     self:removeFromUIManager()
+end
+
+-- ---------------------------------------------------------------- 清單多選（兩個分頁共用）
+-- 點一下＝只選這列；Ctrl（或勾選框）＝加入／取消；Shift＝從錨點選到這列（Ctrl＋Shift 為追加範圍）。
+-- 與原版 SeamEditorUI_TileList.lua:17-30 同一套修飾鍵語意。keys 是目前清單的可見順序。
+local Sel = {}
+Sel.__index = Sel
+
+function W.selection()
+    return setmetatable({ set = {}, anchor = nil }, Sel)
+end
+
+function Sel:has(k) return self.set[k] == true end
+
+function Sel:count()
+    local n = 0
+    for _ in pairs(self.set) do n = n + 1 end
+    return n
+end
+
+function Sel:keys()
+    local out = {}
+    for k in pairs(self.set) do out[#out + 1] = k end
+    return M.sortSafe(out)
+end
+
+function Sel:clear()
+    self.set, self.anchor = {}, nil
+end
+
+function Sel:only(k)
+    self.set, self.anchor = { [k] = true }, k
+end
+
+function Sel:click(keys, i, toggle)
+    local k = keys[i]
+    if not k then return end
+    local anchorAt
+    if self.anchor then
+        for j, x in ipairs(keys) do
+            if x == self.anchor then anchorAt = j end
+        end
+    end
+    if isShiftKeyDown() and anchorAt then
+        if not isCtrlKeyDown() then self.set = {} end
+        for j = math.min(anchorAt, i), math.max(anchorAt, i) do self.set[keys[j]] = true end
+        return
+    end
+    if toggle or isCtrlKeyDown() then
+        self.set[k] = (not self.set[k]) or nil
+    else
+        self.set = { [k] = true }
+    end
+    self.anchor = k
+end
+
+-- 表頭勾選框：全部已選就全取消，否則全選
+function Sel:toggleAll(keys)
+    local all = self:state(keys) == true
+    for _, k in ipairs(keys) do self.set[k] = (not all) or nil end
+end
+
+-- keys 裡的選取狀態：false／"some"／true（給 W.checkbox 畫三態）
+function Sel:state(keys)
+    local n = 0
+    for _, k in ipairs(keys) do
+        if self.set[k] then n = n + 1 end
+    end
+    if n == 0 then return false end
+    return n == #keys or "some"
+end
+
+-- 只保留 keys 內的選取（清單內容換了之後用）
+function Sel:retain(keys)
+    local keep = {}
+    for _, k in ipairs(keys) do
+        if self.set[k] then keep[k] = true end
+    end
+    self.set = keep
+end
+
+-- ---------------------------------------------------------------- 數字步進器：[－] 數值 [＋]，點數值可直接輸入
+-- opts = { get = fn() → 數值或 nil（混合）, set = fn(v), step = fn(v, dir) → 新值, format = fn(v) → 文字,
+--          title = 對話框標題, prompt = 對話框說明 }
+MVSC_Stepper = ISPanel:derive("MVSC_Stepper")
+local Stepper = MVSC_Stepper
+
+function W.stepper(parent, x, y, w, h, opts)
+    local s = Stepper:new(x, y, w, h)
+    s.opts = opts
+    s.background = false
+    s:initialise()
+    s:instantiate()
+    parent:addChild(s)
+    return s
+end
+
+function Stepper:createChildren()
+    local h = self.height
+    self.minus = W.button(self, 0, 0, h, h, "-", self, Stepper.onStep, "secondary")
+    self.minus.dir = -1
+    self.plus = W.button(self, self.width - h, 0, h, h, "+", self, Stepper.onStep, "secondary")
+    self.plus.dir = 1
+    self.value = W.button(self, h + 4, 0, self.width - h * 2 - 8, h, "", self, Stepper.onInput, "value")
+end
+
+function Stepper:onStep(button)
+    local v = self.opts.get()
+    self.opts.set(self.opts.step(v, button.dir))
+end
+
+function Stepper:onInput()
+    local o = self.opts
+    local v = o.get()
+    W.dialog({ title = o.title, message = o.prompt, input = v and U.num(v) or "1", confirm = U.T("Ok"),
+        onConfirm = function(text)
+            local n = tonumber(text)
+            if n and n >= 0 then o.set(n) end
+        end })
+end
+
+function Stepper:prerender()
+    local v = self.opts.get()
+    self.value:setTitle(self.opts.format(v))
+    self.value.hint = self.opts.title
+end
+
+-- ---------------------------------------------------------------- 自繪區域的提示框（原版 ISToolTip；擁有者隱藏時自己收起，ISToolTip.lua:58）
+function W.tip(owner, text)
+    local t = owner.mvscTip
+    if text then
+        if not t then
+            t = ISToolTip:new()
+            t:initialise()
+            t:setOwner(owner)
+            t:setAlwaysOnTop(true)
+            t.maxLineWidth = 1000
+            owner.mvscTip = t
+        end
+        if not t:getIsVisible() then
+            t:addToUIManager()
+            t:setVisible(true)
+        end
+        t.description = text
+        t:setDesiredPosition(getMouseX(), getMouseY() + 24)
+    elseif t and t:getIsVisible() then
+        t:setVisible(false)
+        t:removeFromUIManager()
+    end
+end
+
+-- 執行中改清單位置與高度：原版捲軸在建立時就定了高度，要一起改
+function W.placeList(list, y, h)
+    list:setY(y)
+    list:setHeight(h)
+    if list.vscroll then list.vscroll:setHeight(h) end
 end

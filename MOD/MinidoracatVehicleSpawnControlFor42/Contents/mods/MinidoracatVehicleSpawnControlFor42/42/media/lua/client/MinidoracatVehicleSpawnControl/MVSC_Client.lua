@@ -157,7 +157,16 @@ end
 
 local function touched()
     C.version = (C.version or 0) + 1
-    emit("draft")
+    if (C.muted or 0) == 0 then emit("draft") end
+end
+
+-- 批次編輯：中間不發 draft 事件，結束只發一次（一次改上百台車時面板不必逐台重建）
+function C.batch(fn)
+    C.muted = (C.muted or 0) + 1
+    local ok, err = pcall(fn)
+    C.muted = C.muted - 1
+    touched()
+    if not ok then error(err) end
 end
 
 local function zoneEntry(zone)
@@ -207,6 +216,24 @@ end
 
 function C.setNewVehicles(mode)
     C.draft.newVehicles = mode
+    touched()
+end
+
+-- 倍率（設計 4.1 的來源層／車輛層）：kind 是 "sources" 或 "vehicles"；1 表示沒有覆寫
+function C.multOf(kind, key)
+    local e = C.draft[kind] and C.draft[kind][key]
+    return e and e.multiplier or 1
+end
+
+function C.setMultiplier(kind, key, m)
+    m = math.max(0, math.floor(m * 100 + 0.5) / 100)
+    C.draft[kind] = C.draft[kind] or {}
+    local e = C.draft[kind][key] or {}
+    if m == 1 then e.multiplier = nil else e.multiplier = m end
+    C.draft[kind][key] = e
+    local empty = true -- Kahlua 沒有 next()
+    for _ in pairs(e) do empty = false break end
+    if empty then C.draft[kind][key] = nil end
     touched()
 end
 

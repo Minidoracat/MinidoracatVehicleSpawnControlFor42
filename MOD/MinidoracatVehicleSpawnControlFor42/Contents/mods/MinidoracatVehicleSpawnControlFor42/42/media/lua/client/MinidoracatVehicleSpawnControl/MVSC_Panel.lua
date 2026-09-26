@@ -52,11 +52,11 @@ function Sync:refresh()
     if not C.data then return end
     local st = C.data.status or {}
     self.lines:clear()
-    for _, e in ipairs(st.errors or {}) do self.lines:addItem(e, { kind = "error" }) end
-    for _, w in ipairs(st.warnings or {}) do self.lines:addItem(w, { kind = "warning" }) end
+    for _, e in ipairs(st.errors or {}) do self.lines:addItem(e, { kind = "error" }, e) end
+    for _, w in ipairs(st.warnings or {}) do self.lines:addItem(w, { kind = "warning" }, w) end
     for _, s in ipairs(st.newVehicles or {}) do
         local v = C.data.catalog[s]
-        self.lines:addItem(s, { kind = "new", name = v and v.display or s })
+        self.lines:addItem(s, { kind = "new", name = v and v.display or s }, (v and v.display or s) .. " <LINE> " .. s)
     end
 end
 
@@ -76,7 +76,7 @@ function Sync:render()
     local st = C.data.status or {}
     local failed = st.ok == false
     local x = IN
-    if W.icon(self, failed and "close" or "clipboardCheck", x, L.head + 2, 20, failed and "errorText" or "accent") then x = x + 28 end
+    if W.icon(self, failed and "close" or "clipboardCheck", x, L.head + 2, 20, failed and "errorText" or "text") then x = x + 28 end
     U.text(self, failed and T("SyncFailed") or T("SyncOk"), x, L.head, failed and "errorText" or "text", UIFont.Medium)
     U.text(self, T("SyncDetail", tostring(st.revision or C.data.revision), U.sourceLabel(st.source), U.ago(st.checkedAt)), IN, L.detail, "textMuted")
     U.text(self, T("ConfigPath") .. "  Zomboid/Lua/MinidoracatVehicleSpawnControl/config.json", IN, L.path, "textMuted")
@@ -91,9 +91,9 @@ function Sync.drawLine(list, y, item)
     local w = W.rowBg(list, y, item, false)
     local fh = U.fontH()
     local mid = y + math.floor((list.itemheight - 20) / 2)
-    local token = d.kind == "error" and "errorText" or (d.kind == "new" and "accent" or "textMuted")
+    local token = d.kind == "error" and "errorText" or "textMuted"
     local label = d.kind == "error" and T("LineError") or (d.kind == "warning" and T("LineWarning") or T("BadgeNew"))
-    local bw = W.badge(list, label, 10, mid, token)
+    local bw = W.badge(list, label, 10, mid, token, d.kind == "new" and "tag" or nil)
     local text = d.kind == "new" and (d.name .. "  (" .. item.text .. ")") or item.text
     U.text(list, U.fit(text, w - bw - 30), 20 + bw, y + math.floor((list.itemheight - fh) / 2), "text")
     return y + list.itemheight
@@ -171,7 +171,7 @@ function Hist.drawRow(list, y, item)
     local mid = y + math.floor((list.itemheight - fh) / 2)
     local x = 18
     U.text(list, "#" .. tostring(e.revision), x, mid, "text")
-    if C.data and e.revision == C.data.revision then W.badge(list, T("Current"), x + 60, mid - 2, "accent") end
+    if C.data and e.revision == C.data.revision then W.badge(list, T("Current"), x + 60, mid - 2, "textMuted") end
     U.text(list, U.ago(e.at), x + 170, mid, "textMuted")
     U.text(list, U.sourceLabel(e.source), x + 340, mid, "text")
     if e.user and e.user ~= "" then U.text(list, U.fit(e.user, w - x - 530), x + 510, mid, "textMuted") end
@@ -184,8 +184,10 @@ local P = MVSC_Panel
 
 function P:new()
     local sw, sh = getCore():getScreenWidth(), getCore():getScreenHeight()
-    local w = math.min(sw - 40, 1280)
-    local h = math.min(sh - 40, 780)
+    -- 依字級等比放大：自動字級在 1440p 以上會變大（Core.java:3248-3271），固定尺寸會把按鈕與說明截斷
+    local k = math.max(1, U.fontH() / 16)
+    local w = math.min(sw - 40, math.floor(1280 * k))
+    local h = math.min(sh - 40, math.floor(780 * k))
     local o = MVSC_Window.new(self, math.floor((sw - w) / 2), math.floor((sh - h) / 2), w, h, T("Title"))
     o.badge = T("AdminBadge")
     return o
@@ -251,7 +253,6 @@ function P:onEvent(event, args)
         self.zoneTab:refresh()
         self.syncView:refresh()
         self.historyView:refresh()
-        if self.vehicleTab.selectedFull then self.vehicleTab:select(self.vehicleTab.selectedFull) end
     elseif event == "draft" then
         self.vehicleTab:onDraft()
         self.zoneTab:onDraft()
@@ -277,10 +278,17 @@ function P:onApply()
     if C.hasChanges() then C.apply(false) end
 end
 
+-- 放棄會丟掉所有未套用的編輯且無法復原，先確認（WCAG 3.3.4）
 function P:onDiscard()
-    C.discard()
-    self.vehicleTab:rebuildZones()
-    self.zoneTab:rebuildTable()
+    local n = #C.changes()
+    if n == 0 then return end
+    local panel = self
+    W.dialog({ title = T("Discard"), message = T("ConfirmDiscard", tostring(n)), confirm = T("Discard"), danger = true,
+        onConfirm = function()
+            C.discard()
+            panel.vehicleTab:rebuildZones()
+            panel.zoneTab:rebuildTable()
+        end })
 end
 
 function P:onChanges()
@@ -304,7 +312,7 @@ function P:prerender()
     local text, token, icon
     if self.flash and getTimestampMs() < self.flashUntil then text, token, icon = self.flash, "text", "clipboardCheck"
     elseif C.loading or not C.data then text, token, icon = T("Loading"), "textMuted", "reload"
-    elseif C.stale then text, token, icon = T("StaleNotice", tostring(C.stale)), "accent", "reload"
+    elseif C.stale then text, token, icon = T("StaleNotice", tostring(C.stale)), "text", "reload"
     else
         local st = C.data.status or {}
         local bad = st.ok == false

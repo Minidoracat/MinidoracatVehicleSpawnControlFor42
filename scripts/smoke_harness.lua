@@ -369,6 +369,42 @@ local cfgv = M.validate(raw, { zones = S.base.zones, aliasOf = S.base.aliasOf, s
 check(#M.diff(raw, M.toRaw(cfgv)) == 0, "validate 後轉回原格式沒有差異")
 check(M.diff(raw, { schema = 1, newVehicles = "keep", sources = {}, vehicles = {}, zones = {} })[1] ~= nil, "有差異時列出路徑")
 
+print("情境十七：面板的來源／車輛倍率（整包調降，其他來源占比跟著上升）")
+Cl.discard()
+Cl.setEnabled("MilPack.M35", true) -- 情境十二已套用停用；先放回區域清單
+local n0 = #Cl.changes()
+local function shares(zone)
+    local total, by = 0, {}
+    for s, def in pairs(Cl.effective()[zone].vehicles) do
+        total = total + def.spawnChance
+        local src = Cl.data.info.sourceOf[s]
+        by[src] = (by[src] or 0) + def.spawnChance
+    end
+    return total, by
+end
+local mixedZone, modSrc
+for zone in pairs(Cl.effective()) do
+    local _, by = shares(zone)
+    for src in pairs(by) do
+        if src ~= M.VANILLA and by[M.VANILLA] then mixedZone, modSrc = zone, src end
+    end
+end
+check(mixedZone ~= nil, "測試資料有同時含原版與 MOD 車的區域")
+local t0, by0 = shares(mixedZone)
+Cl.setMultiplier("sources", M.VANILLA, 0.5)
+local t1, by1 = shares(mixedZone)
+local expect = by0[modSrc] / (by0[M.VANILLA] * 0.5 + by0[modSrc])
+check(math.abs(by1[modSrc] / t1 - expect) < 1e-9 and by1[modSrc] / t1 > by0[modSrc] / t0,
+    "原版整包 ×0.5 後 MOD 占比上升到 " .. string.format("%.1f%%", by1[modSrc] / t1 * 100))
+check(#Cl.changes() == n0 + 1 and Cl.multOf("sources", M.VANILLA) == 0.5, "來源倍率記成一項變更")
+Cl.setMultiplier("sources", M.VANILLA, 1)
+check(#Cl.changes() == n0 and Cl.draft.sources[M.VANILLA] == nil, "倍率調回 1 不留覆寫")
+Cl.setEnabled("MilPack.M35", false)
+Cl.setMultiplier("vehicles", "MilPack.M35", 2)
+Cl.setMultiplier("vehicles", "MilPack.M35", 1)
+check(Cl.draft.vehicles["MilPack.M35"] and Cl.draft.vehicles["MilPack.M35"].enabled == false, "清掉車輛倍率不會連停用一起清掉")
+Cl.discard()
+
 print()
 if failures > 0 then
     print(failures .. " 項失敗")
