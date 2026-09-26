@@ -29,8 +29,8 @@
 5. **不是所有車都走區域表。**部分故事事件直接指定車型（例 `RVSAmbulanceCrash.java:57-60`、`RVSRichJerk.java:98-102`），本 MOD 管不到。
 6. **同名車很多。**原版繁中翻譯有 34 個 script 都叫「富蘭克林·瓦盧林」、損毀版也共用名稱（`Translate/CH/IG_UI.json` 的 `IGUI_VehicleName*`）。清單必須顯示 script 名，並能按車款分組批次處理。
 7. **大型資料不整包廣播。**單一命令走 1 MB 緩衝（`UdpConnection.java:39-44`）；按目前區域或搜尋結果分頁傳給 client。
-8. **區域內不能留下「全部權重為 0」。**`init()` 以 `100 / 權重總和` 正規化（`VehicleType.java:72-81`），總和為 0 時每台車的權重會變成 NaN。停用車輛要把它從該區的 `vehicles` 表移除；整區都停用就把 `spawnRate` 設成 0，不要留下空的權重。
-9. **區域名一律小寫。**`init()` 用原樣的鍵存入快取（`VehicleType.java:55,135`），查詢時卻先轉小寫（`:160,173`）。大小寫混用的區域名會查不到。
+8. **停用只能「從清單移除」。**權重全為 0 時 `init()` 正規化成 NaN（`VehicleType.java:72-81`），抽選會固定選到清單最後一台（`IsoChunk.java:1318-1330`）；`spawnRate` 設 0 也仍有 1%（`:992`）。停用的車要從該區 `vehicles` 移除；整區停用就是清單為空，該區不再生車（`:1000-1002,1314-1316`）。
+9. **區域名大小寫要和表完全一致。**快取以原樣鍵存入（`VehicleType.java:55,135`），查詢時先轉小寫（`:160,173`）。原版本身就有 `luxuryDealership`、`middleClass` 這類混用鍵，MOD 也會加（例如 `SemiTankerOnly`，2026-09-26 E2E 伺服器實見），所以設定檔用執行期表的原樣鍵；只差大小寫時報錯並給正確寫法。[INFERENCE] 依原始碼，混用大小寫的區域在引擎查詢時找不到快取，可能是原版 bug；本 MOD 不修也不依賴它。
 
 ## 4. 資料模型
 
@@ -41,7 +41,6 @@
 ```json
 {
   "schema": 1,
-  "revision": 42,
   "newVehicles": "keep",
   "sources": {
     "pz-vanilla": { "multiplier": 1.0 },
@@ -55,28 +54,37 @@
     "parkingstall": {
       "spawnRate": 16,
       "chanceToSpawnBurnt": 0,
-      "weights": { "Base.CarNormal": 20, "MilPack.M35": 0 },
-      "skins": { "Base.VanSeats_Mural": 2 }
+      "weights": { "Base.CarNormal": 20, "Base.VanAmbulance": 3, "MilPack.M35": 0 },
+      "skins": { "Base.CarNormal": 2 }
     }
   }
 }
 ```
 
-實際權重 ＝ 區域權重（有覆寫用覆寫，否則用原設定）× 車輛倍率 × 來源倍率；`enabled:false` 一律為 0。優先序固定、不需排序，面板與 JSON 一看就懂。
+實際權重 ＝ 區域權重（有覆寫用覆寫，否則用原設定）× 車輛倍率 × 來源倍率；結果 ≤ 0 或 `enabled:false` 的車從該區清單移除（限制 8）。每次都從開服時的原始分布重算，舊設定不殘留。
 
-- `newVehicles`：新偵測到的 MOD 車輛怎麼處理——`keep`（照該 MOD 自己的比例）或 `disable`（先不生成，等管理員開啟）。
-- 設定檔引用到已移除的車或區域：保留在檔案裡、面板標「遺失」，不刪、不報錯中斷。
+- `weights` 可以把車加進原本沒有它的區域（例如上面的 `Base.VanAmbulance`）；設 0 等於從該區移除。
+- `skins`：指定這個區域生成哪一款塗裝，`-1` 為隨機。
+- 區域參數：`spawnRate`、`chanceToSpawnNormal`、`chanceToSpawnBurnt`、`chanceToSpawnSpecial`、`chanceToPartDamage`、`chanceToSpawnKey`（0–100），`baseVehicleQuality`（0–2）。
+- `newVehicles`：新偵測到的車怎麼處理——`keep`（照該 MOD 自己的比例）或 `disable`（先不生成；在 `vehicles` 明確寫 `"enabled": true` 才開）。「新偵測」＝首次安裝本 MOD 之後才出現的 script（記在 `state.json`）。
+- 區域名要和 `catalog.json` 列的鍵完全相同（大小寫也一樣），且要用正式名稱（`business2`–`business12` 要寫成 `business`）；寫錯會整份拒絕並說明改法。
+- 設定檔引用到已移除的車或區域：保留在檔案裡、在 `status.json` 列成 warning，不報錯中斷。
+- 修訂號由伺服器管理（`state.json`、`status.json`），管理員不需要自己加。
 
 ### 4.2 車輛目錄：`catalog.json`（唯讀，開服自動產生）
 
-列出所有車輛 script、顯示名、來源 MOD、所屬區域與原始權重、塗裝數，以及所有區域的原始參數。讓管理員不進遊戲也知道能填哪些 script 名與區域名。
+列出所有車輛 script、顯示名、來源 MOD（依 script 載入紀錄，含覆寫者）、塗裝數、是否新偵測／啟用、出現在哪些區域；每個區域列出別名、生效參數、生效權重與占比，以及原始權重。讓管理員不進遊戲也知道能填哪些 script 名與區域名。
+
+### 4.2a 狀態：`status.json`（唯讀）
+
+最近一次檢查的結果：是否成功、來源（`boot`／`file`）、修訂號、錯誤（JSON 語法錯誤帶行號、值錯誤帶路徑與改法）、warning、新偵測車輛清單。不進遊戲改檔時，看這個檔就知道有沒有生效。
 
 ### 4.3 同步流程（見 `images/D-json-sync-flow.png`）
 
-1. 每次寫入前先把舊檔備份到 `backups/`（保留最近 N 份）。
+1. 每次接受的設定都複製到 `backups/config-<1..10>.json`（依修訂號輪流覆寫最近 10 份；Lua 沒有刪檔 API，所以用固定槽）。
 2. 伺服器每 60 秒（真實時間，用 `getTimestampMs` 節流，`LuaManager.java:9268`）讀一次 `config.json`，內容沒變就跳過。遊戲時間事件會隨日長設定變快變慢（`GameTime.java:646-656`），不拿來當計時器。
-3. 變了就解析與驗證；失敗時保留舊設定，並把「第幾行、哪個欄位、怎麼修」通知線上管理員。
-4. 成功就套用並把修訂號加一，線上管理員的面板自動重新整理。
+3. 變了就解析與驗證；失敗時保留舊設定，錯誤寫進 `status.json` 與伺服器 log（面板上線後再通知線上管理員）。開服時設定檔就壞掉，則以原始分布啟動。
+4. 成功就改表 → `VehicleType.Reset()` → 修訂號加一 → 重寫 `catalog.json`／`status.json`（面板上線後通知線上管理員重新整理）。
 5. 管理員在面板編輯期間若檔案被外部修改，按「套用變更」時要求選擇「重新載入」或「覆寫」（沿用 Economy `ECCodec.lua:157-224` 的 stale 比對模式）。
 
 ## 5. 介面候選
