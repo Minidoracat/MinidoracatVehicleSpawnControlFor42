@@ -108,19 +108,24 @@ function Tab:createChildren()
     self.scene.borderColor = { r = 1, g = 1, b = 1, a = 0.06 }
     self:addChild(self.scene)
     local j = self.scene.javaObject
+    -- 原版 ISUI3DScene 左鍵拖曳是 dragView（平移），滾輪 zoom 會朝滑鼠位置偏移（UI3DScene.java:902-914,1052-1058）。
+    -- 預覽改成：左鍵拖曳轉視角、滾輪以中心縮放，車永遠置中；視角一律 UserDefined，按鈕只換角度
     self.scene:setView("UserDefined")
+    self.scene.onMouseDown = Tab.sceneDown
+    self.scene.onMouseMove = Tab.sceneMove
+    self.scene.onMouseMoveOutside = Tab.sceneMove
+    self.scene.onMouseWheel = Tab.sceneWheel
     j:fromLua1("setMaxZoom", 20)
-    j:fromLua1("setZoom", 5)
-    j:fromLua3("setViewRotation", 25.0, 135.0, 0.0)
+    self:setAngle(Tab.ANGLES.iso)
     j:fromLua1("setDrawGrid", false)
     j:fromLua1("createVehicle", "v")
     j:fromLua2("setObjectVisible", "v", false)
-    local views = { { "ViewFront", "Front" }, { "ViewSide", "Left" }, { "ViewTop", "Top" }, { "ViewReset", nil } }
+    local views = { { "ViewFront", "front" }, { "ViewSide", "side" }, { "ViewTop", "top" }, { "ViewReset", "iso" } }
     local bw = math.floor((mw - IN * 2 - PAD * 3) / 4)
     local by = self.scene:getBottom() + PAD
     for i, v in ipairs(views) do
         local b = W.button(self, mx + IN + (i - 1) * (bw + PAD), by, bw, ch, T(v[1]), self, Tab.onView, "secondary",
-            v[2] == nil and "reload" or nil)
+            v[2] == "iso" and "reload" or nil)
         b.view = v[2]
     end
     self.infoY = by + ch + IN
@@ -250,15 +255,41 @@ function Tab:onVehicle(item)
     end
 end
 
-function Tab:onView(button)
+-- 與原版預設視角同角度（UI3DScene.java:2604-2627）；iso＝開啟時的斜俯視
+Tab.ANGLES = { front = { 0, 0, 0 }, side = { 0, 270, 0 }, top = { 0, 90, 90 }, iso = { 25, 135, 0 } }
+local ZOOM = 5
+
+function Tab:setAngle(a)
+    self.rot = { a[1], a[2], a[3] }
+    self.zoom = ZOOM
     local j = self.scene.javaObject
-    if button.view then
-        self.scene:setView(button.view)
-    else
-        self.scene:setView("UserDefined")
-        j:fromLua3("setViewRotation", 25.0, 135.0, 0.0)
-        j:fromLua1("setZoom", 5)
-    end
+    j:fromLua3("setViewRotation", a[1], a[2], a[3])
+    j:fromLua1("setZoom", ZOOM)
+end
+
+function Tab:onView(button)
+    self:setAngle(Tab.ANGLES[button.view])
+end
+
+-- 以下三個掛在 scene 上，self 是 scene、parent 是本分頁
+function Tab.sceneDown(scene)
+    scene.mouseDown = true
+    return true
+end
+
+function Tab.sceneMove(scene, dx, dy)
+    if not scene.mouseDown then return end
+    local r = scene.parent.rot
+    r[2] = (r[2] + dx / 2) % 360
+    r[1] = math.max(-89, math.min(89, r[1] + dy / 2))
+    scene.javaObject:fromLua3("setViewRotation", r[1], r[2], r[3])
+end
+
+function Tab.sceneWheel(scene, del)
+    local tab = scene.parent
+    tab.zoom = math.max(1, math.min(20, tab.zoom - del))
+    scene.javaObject:fromLua1("setZoom", tab.zoom)
+    return true
 end
 
 function Tab:targets()
