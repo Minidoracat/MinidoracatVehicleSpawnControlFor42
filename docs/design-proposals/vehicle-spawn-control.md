@@ -15,8 +15,8 @@
 | 自動加入 MOD 車輛 | 可行 | `ScriptManager.getAllVehicleScripts()`（`ScriptManager.java:848-854`） | 開服時列舉全部車輛 script |
 | 原版／MOD 分類 | 可行 | `BaseScriptObject.getLoadedScriptBodies()` 交錯記錄 modId／body（`BaseScriptObject.java:137-144`、`ScriptBucket.java:98-132`），原版為 `pz-vanilla`（`ScriptManager.java:651`）；`getModInfoByID` 取 MOD 名（`LuaManager.java:5364-5368`） | 以來源 modId 分類，**不看 module 名**（MOD 常用 `module Base`） |
 | JSON 改檔自動同步 | 可行（輪詢） | Lua 只能讀寫 `<cacheDir>/Lua/`，沒有 mtime API（`LuaManager.java:5933-5959,6020-6031`） | 每分鐘讀檔比對內容，變了才解析驗證 |
-| 改完立即影響遊戲 | **待實機驗證** | Java 在第一次生車時把 Lua 表複製成快取（`VehicleType.java:38-126`、`IsoChunk.java:1726-1730`）；`VehicleType.Reset()` 可清快取且類別有對 Lua 公開（`VehicleType.java:231-234`、`LuaManager.java:2440`） | 改表後呼叫 `Reset()`；若實機不安全，退回「重啟生效」 |
-| 3D 外觀預覽 | 可行（預設塗裝） | `UI3DScene` 的 `createVehicle`／`setVehicleScript`（`UI3DScene.java:590-598,1424-1427`），非 debug 限定 | 單一場景，只在選車時渲染 |
+| 改完立即影響遊戲 | **可行（2026-09-26 實機驗證）** | Java 在第一次生車時把 Lua 表複製成快取（`VehicleType.java:38-126`、`IsoChunk.java:1726-1730`）；`VehicleType.Reset()` 可清快取且類別有對 Lua 公開（`VehicleType.java:231-234`、`LuaManager.java:2440`）；伺服器生車與 Lua 同在主迴圈（`GameServer.java:957`） | 改表後呼叫 `Reset()`，之後新生成的區塊立即採用新比例 |
+| 3D 外觀預覽 | 可行（預設塗裝；2026-09-26 非 debug MP 客戶端實機驗證） | `UI3DScene` 的 `createVehicle`／`setVehicleScript`（`UI3DScene.java:590-598,1424-1427`），非 debug 限定 | 單一場景，只在選車時渲染 |
 | 切換塗裝預覽 | **原版 API 做不到** | 場景初始化只取 `getSkin(0)` 並快取（`UI3DScene.java:6101-6111`）；`VehicleScript.skins` 為 private、無修改 API（`VehicleScript.java:102-104`） | 列出塗裝清單並可指定「生成塗裝」；3D 固定顯示第一款 |
 | 切換顏色預覽 | **原版 API 做不到** | 預覽車漆色寫死（`UI3DScene.java:7040-7050`）；真車顏色是生成時隨機 HSV（`BaseVehicle.java:729-772`） | 顯示「隨機車色」或 script 的固定色 |
 
@@ -149,17 +149,20 @@
 - 重配已生成的車：屬 VehicleManager 的範圍。
 - 控制直接指定車型的故事事件：原版沒有入口。
 
-## 7. 實作前要先驗證的事
+## 7. 實機驗證結果（2026-09-26，E2E `spike-mp`，42.20.4 no-Steam 專用伺服器＋一般模式客戶端，9 步 9 檢查 PASS）
 
-1. **`VehicleType.Reset()` 在執行中的專用伺服器是否安全**：決定「立即生效」或「重啟生效」。區塊生車在 `doLoadGridsquare` 內（`IsoChunk.java:3691-3714`），要實測與區塊載入同時發生時會不會出錯。
-2. **套用時機**：若 `Reset()` 可用，開服後任何時間套用都行；若不可用，必須在所有車輛 MOD 的生成表腳本之後、第一次生車之前套用，需實測事件順序。
-3. **一般 MP client 的 3D 預覽**：`UI3DScene` 沒有 debug 限制，但只在 debug 工具裡被使用過，需實機確認。
+1. **`VehicleType.Reset()` 可以在執行中的伺服器使用。**所有區域改成只生救護車並 `Reset()` 後，路易斯維爾新區塊 5/5、Rosewood 新區塊 10/10 都是救護車；基準區（改表前）0/2。移動途中每秒連續 `Reset()` 20 次也沒有錯誤或例外。這符合原始碼：伺服器生車（`ServerMap.preupdate` → `Load2` → `AddVehicles`）和 Lua 同在主迴圈（`GameServer.java:957`），不會競態。**設計採「立即生效」，不需要重啟。**
+2. **套用時機不受限。**檔案載入、`OnGameBoot`、`OnInitWorld`、`OnInitGlobalModData`、`OnLoadMapZones`、`OnServerStarted` 塞進的哨兵區域全部進了快取；第一台車在 `OnServerStarted` 之後才生成（玩家連線時）。正式 MOD 在 `OnServerStarted` 套用設定並呼叫一次 `Reset()`，之後每次設定變更也是「改表 → `Reset()`」，不必依賴載入順序或 `loadModAfter`。
+   - `VehicleType.vehicles` 靜態欄位 Lua 讀得到（`VehicleType.vehicles:size()`；本輪 70 個區域鍵，含 6 個哨兵與測試伺服器範本啟用的其他 MOD），可用來做健康檢查。
+3. **3D 預覽在一般 MP 客戶端可用。**非 debug 客戶端建立 `ISUI3DScene` → `createVehicle` → `setVehicleScript` 顯示 `Base.StepVanMail`，切到 `Base.CarLuxury` 也立即換模型（截圖 `temp/e2e-spike/preview*.png`，本機）。兩台都是原版車；若初始化當下模型還沒載入，場景會一直空白，直到再次 `setVehicleScript`（`UI3DScene.java:6101-6105,6382-6387`），MOD 車第一次顯示時要在實作中處理。`setZoom 8` 對 640×400 的場景太近，實作時要依車身長度調整縮放。
 4. **JSON 解析**：原版沒有 Lua JSON 函式庫；複製 Economy 的 `ECCore.lua` codec 到本 MOD 命名空間（第三個 consumer 出現時再抽共用）。
+
+單人模式的事件順序沒有實測；因為一律「改表 → `Reset()`」，不受影響。
 
 ## 8. 待決定
 
 1. ~~介面方向~~：已定案 C（見第 5 節）。
 2. ~~`newVehicles` 預設值~~：`keep`（2026-09-26 定案）。
-3. 若 `Reset()` 不安全，退回「修改後重啟生效」（2026-09-26 同意；待第 7 節驗證）。
-4. ~~3D 預覽~~：放 v1（2026-09-26 定案；待第 7 節驗證 MP 客戶端可用）。
+3. ~~`Reset()` 安全性~~：實機驗證可用，採立即生效（2026-09-26，第 7 節）。
+4. ~~3D 預覽~~：放 v1（2026-09-26 定案；一般 MP 客戶端已實機驗證可用）。
 5. ~~面板權限~~：`Capability.SandboxOptions`（2026-09-26 定案）。
