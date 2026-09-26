@@ -1,0 +1,21 @@
+{
+    "app_id": 108600,
+    "published_file_id": null,
+    "owner_steamid64": "76561198033176898",
+    "workshop_root": "MOD/MinidoracatVehicleSpawnControlFor42",
+    "mod_info": "MOD/MinidoracatVehicleSpawnControlFor42/Contents/mods/MinidoracatVehicleSpawnControlFor42/42/mod.info",
+    "preview_gif": null,
+    "changelog": "STEAM_CHANGELOG.md",
+    "titles": {
+        "english": "Minidoracat Vehicle Spawn Control for B42",
+        "tchinese": "[B42] Minidoracat 車輛生成控制 Vehicle Spawn Control",
+        "schinese": "[B42] Minidoracat 车辆生成控制 Vehicle Spawn Control",
+        "japanese": "[B42] Minidoracat 車両スポーン管理 Vehicle Spawn Control"
+    },
+    "descriptions": {
+        "english": "STEAM_DESCRIPTION_EN.md",
+        "tchinese": "STEAM_DESCRIPTION.md",
+        "schinese": "STEAM_DESCRIPTION.md",
+        "japanese": "STEAM_DESCRIPTION_JP.md"
+    }
+}
