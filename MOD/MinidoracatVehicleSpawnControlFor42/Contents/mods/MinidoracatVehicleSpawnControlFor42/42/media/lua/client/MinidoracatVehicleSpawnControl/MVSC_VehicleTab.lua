@@ -907,7 +907,9 @@ function Row:prerender()
     self.removeBtn:setUsable(C.weightOf(self.zone, full) > 0)
     U.fill(self, 0, 0, self.width, self.height, { r = 1, g = 1, b = 1, a = 0.035 })
     local tm = getTextManager()
-    local right = T("ShareInZone", U.pct(mine and total > 0 and mine / total * 100 or 0))
+    local now = U.pct(mine and total > 0 and mine / total * 100 or 0)
+    local orig = U.pct(C.baseShare(self.zone, full) * 100)
+    local right = orig == now and T("ShareInZone", now) or T("ShareVsBase", now, orig)
     local rx = self.width - 10
     U.textRight(self, right, rx, 6, mine and "textMuted" or "textFaint")
     rx = rx - tm:MeasureStringX(UIFont.Small, right) - 8

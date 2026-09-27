@@ -397,7 +397,14 @@ for zone in pairs(Cl.effective()) do
 end
 check(mixedZone ~= nil, "測試資料有同時含原版與 MOD 車的區域")
 local t0, by0 = shares(mixedZone)
+local baseW, baseT = 0, 0
+for s2, d in pairs(Cl.data.base.zones[mixedZone].vehicles) do
+    baseT = baseT + d.spawnChance
+    if s2 == "MilPack.M35" then baseW = d.spawnChance end
+end
+local b0 = Cl.baseShare(mixedZone, "MilPack.M35")
 Cl.setMultiplier("sources", M.VANILLA, 0.5)
+check(Cl.baseShare(mixedZone, "MilPack.M35") == b0 and math.abs(b0 - baseW / baseT) < 1e-9, "原本占比照原始分布算，不受草稿影響")
 local t1, by1 = shares(mixedZone)
 local expect = by0[modSrc] / (by0[M.VANILLA] * 0.5 + by0[modSrc])
 check(math.abs(by1[modSrc] / t1 - expect) < 1e-9 and by1[modSrc] / t1 > by0[modSrc] / t0,

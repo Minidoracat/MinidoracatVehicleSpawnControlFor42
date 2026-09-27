@@ -253,6 +253,21 @@ function C.paramOf(zone, param)
     return v
 end
 
+-- 原本（沒有任何覆寫）時某車在某區的占比 0–1；每份快照算一次
+function C.baseShare(zone, script)
+    if C.baseFor ~= C.data then
+        C.baseFor, C.baseShares = C.data, {}
+        for name, z in pairs(M.build(C.data.base, M.defaultConfig(), C.data.info)) do
+            local total, shares = 0, {}
+            for _, def in pairs(z.vehicles) do total = total + def.spawnChance end
+            for s, def in pairs(z.vehicles) do shares[s] = total > 0 and def.spawnChance / total or 0 end
+            C.baseShares[name] = shares
+        end
+    end
+    local z = C.baseShares[zone]
+    return z and z[script] or 0
+end
+
 function C.isEnabled(script)
     local cfg = C.effective() and C.cacheCfg
     return cfg and M.enabled(cfg, C.data.info, script)

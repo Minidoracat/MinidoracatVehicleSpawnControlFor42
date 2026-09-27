@@ -476,7 +476,13 @@ function Tab.drawVehicleRow(list, y, item)
     local m = C.multOf("sources", v.source) * C.multOf("vehicles", full)
     U.textRight(list, U.num(weight) .. (m ~= 1 and ("  x" .. U.num(m)) or ""), x + colW * 4 - 8, mid, "text")
     -- 占比：數字＋中性細長條（琥珀只給選取）
-    U.textRight(list, U.pct(share), x + colW * 5 - 8, mid - 4, "text")
+    local now = U.pct(share)
+    U.textRight(list, now, x + colW * 5 - 8, mid - 4, "text")
+    -- 和原本不同時在左邊附上原本的占比（占比列用的是同區所有車的相對比例）
+    local orig = U.pct(C.baseShare(tab.zone, full) * 100)
+    if orig ~= now then
+        U.textRight(list, T("ShareBase", orig), x + colW * 5 - 16 - getTextManager():MeasureStringX(UIFont.Small, now), mid - 4, "textMuted")
+    end
     U.fill(list, x + colW * 4 + 8, mid + fh - 1, colW - 16, 3, { r = 1, g = 1, b = 1, a = 0.08 }, "rect")
     U.fill(list, x + colW * 4 + 8, mid + fh - 1, math.floor((colW - 16) * math.min(1, share / 100)), 3, { r = 1, g = 1, b = 1, a = 0.45 }, "rect")
     if not W.icon(list, "chevronRight", w - 30, y + math.floor((list.itemheight - 16) / 2), 16, "textMuted") then
