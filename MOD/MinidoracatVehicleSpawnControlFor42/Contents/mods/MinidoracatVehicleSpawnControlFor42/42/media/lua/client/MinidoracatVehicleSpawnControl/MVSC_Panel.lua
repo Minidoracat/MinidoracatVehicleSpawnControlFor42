@@ -114,8 +114,10 @@ end
 function Hist:createChildren()
     local FH = U.fontH()
     local ch = W.ctrlH()
-    self.list = W.list(self, IN - 4, IN * 2 + FH * 2, self.width - IN * 2 + 8, self.height - IN * 4 - FH * 2 - ch,
-        FH + 18, Hist.drawRow)
+    local top = IN * 2 + FH * 2
+    local listH = math.floor((self.height - top - ch - IN * 3) * 0.45)
+    self.list = W.list(self, IN - 4, top, self.width - IN * 2 + 8, listH, FH + 18, Hist.drawRow)
+    self.detailY = top + listH + IN
     self.list.onMouseDown = function(list, x, y)
         local row = list:rowAt(x, y)
         if row > 0 then list.selected = row end
@@ -162,6 +164,54 @@ function Hist:render()
     U.text(self, T("ColWhen"), x + 170, hy, "textFaint")
     U.text(self, T("ColFrom"), x + 340, hy, "textFaint")
     U.text(self, T("ColWho"), x + 510, hy, "textFaint")
+    U.text(self, T("ColSummary"), x + 690, hy, "textFaint")
+    self:drawDetail()
+end
+
+-- 每筆紀錄的文字只算一次（每幀都要畫）
+function Hist.lines(e)
+    if not e.mvscLines then
+        local lines = {}
+        if not e.changes then
+            lines[1] = T("HistoryNoDetail")
+        elseif #e.changes == 0 then
+            lines[1] = T("HistoryNoChange")
+        else
+            for _, c in ipairs(e.changes) do lines[#lines + 1] = U.describeChange(c) end
+        end
+        e.mvscLines = lines
+        local n = e.changeCount or 0
+        e.mvscSummary = e.changes and (n > 1 and T("SummaryN", lines[1], tostring(n)) or lines[1]) or nil
+    end
+    return e.mvscLines
+end
+
+-- 選取的修訂改了什麼：逐項列出（伺服器記錄前 40 項，超過的只顯示總數）
+function Hist:drawDetail()
+    local e = self:selectedEntry()
+    if not e then return end
+    local FH = U.fontH()
+    local x, y, w = IN, self.detailY, self.width - IN * 2
+    local bottom = self.restoreBtn:getY() - IN
+    W.card(self, x, y, w, bottom - y)
+    U.text(self, T("HistoryDetail", tostring(e.revision)), x + IN, y + 8, "text")
+    y = y + FH + 16
+    local lines = Hist.lines(e)
+    -- 兩欄排列；放不下（或伺服器只記了前 40 項）時最後一格改寫「還有 N 項」
+    local total = e.changeCount or #lines
+    local perCol = math.max(1, math.floor((bottom - y - 8) / (FH + 4)))
+    local col = math.floor((w - IN * 3) / 2)
+    local shown = #lines
+    if total > shown or shown > perCol * 2 then shown = math.min(shown, perCol * 2 - 1) end
+    local function at(i) return x + IN + math.floor((i - 1) / perCol) * (col + IN), y + ((i - 1) % perCol) * (FH + 4) end
+    for i = 1, shown do
+        local lx, ly = at(i)
+        U.text(self, U.fit(lines[i], col), lx, ly, e.changes and "text" or "textMuted")
+    end
+    if total > shown then
+        local lx, ly = at(shown + 1)
+        U.text(self, T("HistoryMore", tostring(total - shown)), lx, ly, "textMuted")
+    end
 end
 
 function Hist.drawRow(list, y, item)
@@ -174,7 +224,9 @@ function Hist.drawRow(list, y, item)
     if C.data and e.revision == C.data.revision then W.badge(list, T("Current"), x + 60, mid - 2, "textMuted") end
     U.text(list, U.ago(e.at), x + 170, mid, "textMuted")
     U.text(list, U.sourceLabel(e.source), x + 340, mid, "text")
-    if e.user and e.user ~= "" then U.text(list, U.fit(e.user, w - x - 530), x + 510, mid, "textMuted") end
+    if e.user and e.user ~= "" then U.text(list, U.fit(e.user, 160), x + 510, mid, "textMuted") end
+    Hist.lines(e)
+    if e.mvscSummary then U.text(list, U.fit(e.mvscSummary, w - x - 700), x + 690, mid, e.changes[1] and "text" or "textMuted") end
     return y + list.itemheight
 end
 
@@ -292,9 +344,17 @@ function P:onDiscard()
 end
 
 function P:onChanges()
-    local list = C.changes()
+    local list = M.changes(C.data.config, C.draft)
     if #list == 0 then return end
-    W.dialog({ title = T("PendingTitle", tostring(#list)), message = T("PendingHint"), lines = list, cancel = false })
+    local lines = {}
+    for i, e in ipairs(list) do
+        if i > 11 and #list > 12 then
+            lines[#lines + 1] = T("HistoryMore", tostring(#list - 11))
+            break
+        end
+        lines[#lines + 1] = U.describeChange(e)
+    end
+    W.dialog({ title = T("PendingTitle", tostring(#list)), message = T("PendingHint"), lines = lines, cancel = false })
 end
 
 function P:prerender()

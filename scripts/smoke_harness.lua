@@ -325,6 +325,12 @@ local disk = M.jsonDecode(FS[DIR .. "config.json"])
 check(disk.zones.parkingstall.weights["Base.CarNormal"] == 55 and disk.vehicles["MilPack.M35"].enabled == false, "config.json 寫入面板的設定")
 local hist = readJson(DIR .. "history.json")
 check(hist[#hist].source == "panel" and hist[#hist].user == "admin1" and hist[#hist].revision == rev0 + 1, "變更紀錄記下來源與操作者")
+local found = {}
+for _, c in ipairs(hist[#hist].changes or {}) do
+    found[c.k .. "|" .. tostring(c.z) .. "|" .. tostring(c.s) .. "|" .. tostring(c.p) .. "|" .. tostring(c.b)] = true
+end
+check(hist[#hist].changeCount == 3 and found["weight|parkingstall|Base.CarNormal|nil|55"] and found["param|parkingstall|nil|spawnRate|40"]
+    and found["vehicle|nil|MilPack.M35|enabled|false"], "變更紀錄逐項記下改了什麼（車名含點也完整保留）")
 check(Cl.data.revision == rev0 + 1 and #Cl.changes() == 0, "套用後重新載入，沒有殘留的未套用變更")
 local resetsNow = resets
 advance(61000)

@@ -56,13 +56,14 @@ function U.fit(s, w, font)
     return string.sub(s, 1, n) .. "..."
 end
 
--- 不把 nil 傳進 getText（42.20 起所有翻譯值都跑 String.formatted，佔位只用 %1–%3）
-function U.T(key, a, b, c)
+-- 不把 nil 傳進 getText（42.20 起所有翻譯值都跑 String.formatted，佔位只用 %1–%4）
+function U.T(key, a, b, c, d)
     local k = "IGUI_MVSC_" .. key
     if a == nil then return getText(k) end
     if b == nil then return getText(k, a) end
     if c == nil then return getText(k, a, b) end
-    return getText(k, a, b, c)
+    if d == nil then return getText(k, a, b, c) end
+    return getText(k, a, b, c, d)
 end
 
 function U.num(v)
@@ -70,6 +71,47 @@ function U.num(v)
     if v == math.floor(v) then return tostring(math.floor(v)) end
     local s = string.format("%.2f", v):gsub("0+$", "")
     return s
+end
+
+-- 一項設定變更（M.changes 的元素）寫成一句話；變更紀錄與「未套用變更」共用
+local PARAM_LABEL = { spawnRate = "ParamSpawnRate", chanceToSpawnBurnt = "ParamBurnt", chanceToSpawnSpecial = "ParamSpecial",
+    baseVehicleQuality = "ParamQuality", chanceToSpawnNormal = "ParamNormal", chanceToPartDamage = "ParamPartDamage",
+    chanceToSpawnKey = "ParamKey" }
+
+local function carName(s)
+    local v = M.Client.data and M.Client.data.catalog[s]
+    return v and v.display or s
+end
+
+local function mult(v) return "x" .. U.num(v) end
+
+function U.describeChange(e)
+    local T = U.T
+    if e.k == "policy" then
+        local name = function(v) return v == "disable" and T("NewDisable") or T("NewKeep") end
+        return T("ChangePolicy", name(e.a), name(e.b))
+    elseif e.k == "source" then
+        return T("ChangeSource", U.packName(e.s), mult(e.a), mult(e.b))
+    elseif e.k == "vehicle" and e.p == "enabled" then
+        return T(e.b == false and "ChangeDisabled" or "ChangeEnabled", carName(e.s))
+    elseif e.k == "vehicle" then
+        return T("ChangeVehicleMult", carName(e.s), mult(e.a), mult(e.b))
+    elseif e.k == "param" then
+        local scale = e.p == "baseVehicleQuality" and 100 or 1
+        local val = function(v) return v == nil and T("ValueDefault") or (U.num(v * scale) .. "%") end
+        return T("ChangeParam", U.zoneLabel(e.z), T(PARAM_LABEL[e.p] or e.p), val(e.a), val(e.b))
+    elseif e.k == "weight" then
+        local val = function(v)
+            if v == nil then return T("ValueDefault") end
+            return v == 0 and T("ValueRemoved") or U.num(v)
+        end
+        return T("ChangeWeight", U.zoneLabel(e.z), carName(e.s), val(e.a), val(e.b))
+    end
+    local val = function(v)
+        if v == nil then return T("ValueDefault") end
+        return v < 0 and T("SkinRandom") or T("SkinIndex", tostring(v + 1))
+    end
+    return T("ChangeSkin", U.zoneLabel(e.z), carName(e.s), val(e.a), val(e.b))
 end
 
 -- 來源（MOD）顯示名：原版一律叫「原版」，其他用 MOD 名；目錄換新時重建快取

@@ -312,3 +312,43 @@ function M.diff(a, b)
     diffInto(a, b, "", out)
     return M.sortSafe(out)
 end
+
+function M.head(list, n)
+    local out = {}
+    for i = 1, math.min(#list, n) do out[i] = list[i] end
+    return out
+end
+
+-- 兩份 raw 設定的結構化差異（變更紀錄與「未套用變更」用來寫人看得懂的摘要）。
+-- 每項 { k = 種類, z = 區域, s = 車／來源, p = 參數, a = 舊值, b = 新值 }；k：policy／source／vehicle／param／weight／skin。
+-- 不用 diff 的點號路徑：車名本身含點（Base.CarNormal），拆不回來
+function M.changes(a, b)
+    a, b = a or {}, b or {}
+    local out = {}
+    local function add(e)
+        if e.a ~= e.b then out[#out + 1] = e end
+    end
+    local function each(ta, tb, fn)
+        local keys = {}
+        for k in pairs(ta or {}) do keys[k] = true end
+        for k in pairs(tb or {}) do keys[k] = true end
+        for _, k in ipairs(M.sortedKeys(keys)) do fn(k, (ta or {})[k], (tb or {})[k]) end
+    end
+    add({ k = "policy", a = a.newVehicles or "keep", b = b.newVehicles or "keep" })
+    each(a.sources, b.sources, function(src, x, y)
+        add({ k = "source", s = src, a = (x or {}).multiplier or 1, b = (y or {}).multiplier or 1 })
+    end)
+    each(a.vehicles, b.vehicles, function(s, x, y)
+        x, y = x or {}, y or {}
+        add({ k = "vehicle", s = s, p = "enabled", a = x.enabled, b = y.enabled })
+        add({ k = "vehicle", s = s, p = "multiplier", a = x.multiplier or 1, b = y.multiplier or 1 })
+    end)
+    local params = M.sortedKeys(M.PARAM_DEFAULTS)
+    each(a.zones, b.zones, function(zone, x, y)
+        x, y = x or {}, y or {}
+        for _, p in ipairs(params) do add({ k = "param", z = zone, p = p, a = x[p], b = y[p] }) end
+        each(x.weights, y.weights, function(s, wa, wb) add({ k = "weight", z = zone, s = s, a = wa, b = wb }) end)
+        each(x.skins, y.skins, function(s, sa, sb) add({ k = "skin", z = zone, s = s, a = sa, b = sb }) end)
+    end)
+    return out
+end

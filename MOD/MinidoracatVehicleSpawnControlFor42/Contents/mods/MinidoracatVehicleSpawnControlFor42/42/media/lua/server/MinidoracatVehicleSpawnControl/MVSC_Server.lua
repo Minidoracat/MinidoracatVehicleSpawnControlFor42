@@ -181,6 +181,23 @@ local function notify(ok, source, errors)
     if not okCall then print(M.LOG .. "notify failed: " .. tostring(err)) end
 end
 
+-- 這次套用改了什麼（變更紀錄的摘要）。開服時比對上一筆紀錄的備份（伺服器關著時可能有人改過檔），
+-- 沒有可比的就不寫；其他情況比對目前生效的設定
+S.HISTORY_CHANGES = 40
+function S.changesFrom(source, cfg)
+    local prev
+    if source == "boot" then
+        local last = S.history[#S.history]
+        local raw = last and last.slot and M.jsonDecode(S.readBackup(last.slot) or "")
+        local old = type(raw) == "table" and M.validate(raw, { zones = S.base.zones, aliasOf = S.base.aliasOf, scripts = S.info.scripts })
+        if not old then return nil end
+        prev = M.toRaw(old)
+    else
+        prev = M.toRaw(S.cfg)
+    end
+    return M.changes(prev, M.toRaw(cfg))
+end
+
 -- 解析＋驗證＋套用一份設定檔文字。失敗時保留目前生效的設定（也不寫檔）。
 -- opts.write＝驗證通過後才寫入 config.json（面板套用、還原）；opts.user＝操作者（變更紀錄）。回 ok, errors。
 function S.applyText(text, source, opts)
@@ -202,6 +219,7 @@ function S.applyText(text, source, opts)
         S.writeText(S.CONFIG, text)
         S.lastText = S.readText(S.CONFIG) -- 讀回值當輪詢基準（readLine 會吃掉結尾換行）
     end
+    local changes = S.changesFrom(source, cfg)
     S.cfg = cfg
     local built = M.build(S.base, cfg, S.info)
     writeLive(built)
@@ -210,7 +228,9 @@ function S.applyText(text, source, opts)
     local slot = backup(text)
     writeCatalog(built)
     writeStatus(true, source, {}, warnings)
-    addHistory({ revision = S.state.revision, at = getTimestampMs(), source = source, user = opts.user or "", slot = slot })
+    addHistory({ revision = S.state.revision, at = getTimestampMs(), source = source, user = opts.user or "", slot = slot,
+        changes = changes and M.head(changes, S.HISTORY_CHANGES) or nil,
+        changeCount = changes and #changes or nil })
     for _, w in ipairs(warnings) do print(M.LOG .. "config warning: " .. w) end
     print(M.LOG .. "applied config revision " .. S.state.revision .. " (" .. source .. (opts.user and (", " .. opts.user) or "") .. ")")
     notify(true, source, {})
