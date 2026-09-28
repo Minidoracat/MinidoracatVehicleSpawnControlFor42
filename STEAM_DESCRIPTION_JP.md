@@ -3,11 +3,14 @@
 
 [hr][/hr]
 
-[h2]✨ これは何？[/h2]
 サーバー管理者がバニラと MOD の車両を自動で一覧化し、管理パネルまたは設定ファイルから駐車ゾーンごとの車両スポーン量と車種の割合をまとめて調整できます。
+[b]🚧 開発中：[/b]現在はプロジェクトの基盤のみで、ゲーム内の機能はまだ実装されていません。
 
-[h2]🚧 開発状況[/h2]
-現在はプロジェクトの基盤のみで、ゲーム内の機能はまだ実装されていません。
+[h2]📦 必要な MOD[/h2]
+[list]
+[*] [b]必須：[/b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library[/url]
+[*] Build 42.20.4+ 対応。シングル／マルチ両対応
+[/list]
 
 [h2]🧰 予定している機能[/h2]
 [list]
@@ -18,24 +21,15 @@
 [*] [b]設定ファイル[/b]：サーバー側の設定ファイルを直接編集することも可能。再起動後に反映
 [/list]
 
-[h2]🔗 MOD シリーズ[/h2]
-[list]
-[*] [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library[/url]（必須）
-[/list]
+[h2]🔗 Minidoracat の MOD 一覧[/h2]
+すべての MOD を[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3809297109]Minidoracat 全シリーズ コレクション[/url]にまとめています。必要なものを選んでサブスクライブしてください。
 
-[h2]📋 MOD 情報[/h2]
+[h2]💬 報告と交流[/h2]
 [list]
-[*] [b]Workshop ID:[/b] 未割り当て
-[*] [b]Mod ID:[/b] MinidoracatVehicleSpawnControlFor42
-[*] [b]対応バージョン:[/b] Build 42.20.4+
-[*] [b]シングル / マルチ:[/b] 両対応
-[*] [b]必須前提 MOD:[/b] Minidoracat UI Library
+[*] [url=https://discord.gg/Gur2V67]Discord[/url]
 [/list]
-
-[h2]💬 フィードバック・交流[/h2]
-[list]
-[*] [url=https://discord.gg/Gur2V67]Discord コミュニティ[/url]
-[/list]
-
 
 [b]#Minidoracat[/b]
+
+Workshop ID: 未割り当て
+Mod ID: MinidoracatVehicleSpawnControlFor42

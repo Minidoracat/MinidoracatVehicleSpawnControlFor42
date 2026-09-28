@@ -3,11 +3,14 @@
 
 [hr][/hr]
 
-[h2]✨ What is this?[/h2]
 Lets server admins list vanilla and modded vehicles automatically and bulk-adjust vehicle spawn amounts and vehicle mix per parking zone, through an admin panel or a config file.
+[b]🚧 In development:[/b] only the project foundation exists at this time. No in-game features have been implemented yet.
 
-[h2]🚧 Development status[/h2]
-Only the project foundation exists at this time. No in-game features have been implemented yet.
+[h2]📦 Requirements[/h2]
+[list]
+[*] [b]Required:[/b] [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library[/url]
+[*] Build 42.20.4+; singleplayer and multiplayer both supported
+[/list]
 
 [h2]🧰 Planned features[/h2]
 [list]
@@ -18,24 +21,15 @@ Only the project foundation exists at this time. No in-game features have been i
 [*] [b]Config file[/b]: Or edit the server-side config file directly; changes apply after a restart
 [/list]
 
-[h2]🔗 MOD series[/h2]
-[list]
-[*] [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library[/url] (required)
-[/list]
+[h2]🔗 More Minidoracat mods[/h2]
+All my mods are in the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3809297109]Minidoracat Mods for B42 collection[/url] — pick what you need.
 
-[h2]📋 MOD information[/h2]
+[h2]💬 Feedback & community[/h2]
 [list]
-[*] [b]Workshop ID:[/b] Not assigned
-[*] [b]Mod ID:[/b] MinidoracatVehicleSpawnControlFor42
-[*] [b]Supported version:[/b] Build 42.20.4+
-[*] [b]Single-player / Multiplayer:[/b] Both supported
-[*] [b]Required dependencies:[/b] Minidoracat UI Library
+[*] [url=https://discord.gg/Gur2V67]Discord[/url]
 [/list]
-
-[h2]💬 Feedback and community[/h2]
-[list]
-[*] [url=https://discord.gg/Gur2V67]Discord community[/url]
-[/list]
-
 
 [b]#Minidoracat[/b]
+
+Workshop ID: Not assigned
+Mod ID: MinidoracatVehicleSpawnControlFor42
