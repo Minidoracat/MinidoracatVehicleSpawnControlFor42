@@ -5,7 +5,7 @@
     uv run --no-project python -B scripts/publish_workshop.py --mode all --yes  # AI／自動化
     uv run --no-project python -B scripts/publish_workshop.py --mode description --dry-run
 
-mode：content（MOD 內容＋更新說明）／preview（GIF 封面）／description（英繁簡日簡介）／screenshots（詳情頁介面預覽圖，英先中後）／all。
+mode：content（MOD 內容＋更新說明）／preview（GIF 封面）／description（英繁簡日簡介）／screenshots（詳情頁介面預覽圖，英、中、日依序）／all。
 流程：登入檢查 → 前置檢查 → 顯示計畫 → 確認 → 提交 → 線上驗證。
 非互動（stdin 非 tty 或給了 --mode）未登入時直接以 exit 3 結束，不等待輸入。
 
@@ -30,7 +30,7 @@ STEAM_API_DLL = os.environ.get("PUBLISH_STEAM_API_DLL",
 LANG_NAMES = {"english": "英文", "tchinese": "繁中", "schinese": "簡中", "japanese": "日文", "koreana": "韓文"}
 MODES = ("content", "preview", "description", "screenshots", "all")
 SCREENSHOT_DIR = os.path.join("docs", "screenshots", "steam")
-SCREENSHOT_LANGS = ("en", "zh")  # Workshop 詳情頁預覽圖順序：英文在前、中文在後
+SCREENSHOT_LANGS = ("en", "zh", "jp")  # Workshop 詳情頁預覽圖順序：英文、中文、日文（預覽圖不分語系，所有人看到同一組）
 SCREENSHOT_MAX_BYTES = 280_000  # AddItemPreviewFile 實測 274KB 成功、314KB 回 EResult 25（LimitExceeded）；網頁上傳的 2MB 上限不適用
 SUBMIT_RESULT_CALLBACK = 3404  # k_iSteamUGCCallbacks(3400) + 4 = SubmitItemUpdateResult_t
 UPDATE_STATUS = {1: "準備設定", 2: "準備內容", 3: "上傳內容", 4: "上傳封面", 5: "提交變更"}  # 0 = Invalid（已結束）
@@ -393,7 +393,7 @@ def check_titles(cfg):
 
 
 def check_screenshots():
-    """本機 docs/screenshots/steam/{en,zh}/*.jpg 依語系再檔名排序；回傳 [絕對路徑]。"""
+    """本機 docs/screenshots/steam/{en,zh,jp}/*.jpg 依語系再檔名排序；回傳 [絕對路徑]。"""
     shots = []
     for lang in SCREENSHOT_LANGS:
         folder = repo_path(os.path.join(SCREENSHOT_DIR, lang))
@@ -485,7 +485,7 @@ def verify(steam, cfg, want, texts, titles, started, shots=()):
 
 # ---- 主流程 ----
 def choose_mode():
-    print("\n要上傳什麼？\n  [1] 只更新 MOD 內容（含更新說明）\n  [2] 只更新 GIF 封面\n  [3] 只更新簡介（英／繁／簡／日）\n  [4] 只同步介面預覽圖（英先中後）\n  [5] 全部更新\n  [0] 離開")
+    print("\n要上傳什麼？\n  [1] 只更新 MOD 內容（含更新說明）\n  [2] 只更新 GIF 封面\n  [3] 只更新簡介（英／繁／簡／日）\n  [4] 只同步介面預覽圖（英、中、日依序）\n  [5] 全部更新\n  [0] 離開")
     picks = {"1": "content", "2": "preview", "3": "description", "4": "screenshots", "5": "all"}
     while True:
         answer = ask("選擇：")

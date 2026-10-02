@@ -347,15 +347,21 @@ MVSC_Dialog = ISPanel:derive("MVSC_Dialog")
 local Dialog = MVSC_Dialog
 
 -- opts = { title, message, lines = {...}, input = "預設值", confirm = "按鈕字", danger = bool, cancel = "按鈕字"|false, onConfirm = fn(value) }
+-- 依字級縮放；清單型對話框加寬到最長一行（上限螢幕寬減 80），大字級時才不會每行被截斷
 function W.dialog(opts)
     local fh = U.fontH()
-    local w = 460
+    local tm = getTextManager()
+    local w = math.floor(460 * math.max(1, fh / 16))
+    for _, l in ipairs(opts.lines or {}) do w = math.max(w, tm:MeasureStringX(UIFont.Small, l) + 60) end
+    w = math.min(w, getCore():getScreenWidth() - 80)
+    local msgY = 16 + U.fontH(UIFont.Medium) + 12
     local lines = {}
     for _, l in ipairs(U.wrap(opts.message or "", w - 40)) do lines[#lines + 1] = l end
     local listH = opts.lines and math.min(#opts.lines, 12) * (fh + 4) + 12 or 0
-    local h = 56 + #lines * (fh + 4) + listH + (opts.input and 44 or 0) + 60
+    local bh = W.ctrlH()
+    local h = msgY + #lines * (fh + 4) + listH + (opts.input and (bh + 16) or 0) + bh + 32
     local d = Dialog:new(math.floor((getCore():getScreenWidth() - w) / 2), math.floor((getCore():getScreenHeight() - h) / 2), w, h)
-    d.opts, d.msgLines = opts, lines
+    d.opts, d.msgLines, d.msgY = opts, lines, msgY
     d.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     d.moveWithMouse = true
     d:initialise()
@@ -382,13 +388,17 @@ function Dialog:createChildren()
         self.entry.onCommandEntered = function() dialog:onConfirm() end
         self.entry.onOtherKey = function(_, key) if key == Keyboard.KEY_ESCAPE then dialog:onCancel() end end
     end
-    local bw = 140
+    local tm = getTextManager()
+    local confirm, cancel = o.confirm or U.T("Ok"), o.cancel or U.T("Cancel")
+    local bw = math.floor(140 * math.max(1, fh / 16))
+    bw = math.max(bw, tm:MeasureStringX(UIFont.Small, confirm) + 32)
+    if o.cancel ~= false then bw = math.max(bw, tm:MeasureStringX(UIFont.Small, cancel) + 32) end
     local x = self.width - 20 - bw
-    W.button(self, x, y, bw, bh, o.confirm or U.T("Ok"), self, Dialog.onConfirm, o.danger and "danger" or "primary")
+    W.button(self, x, y, bw, bh, confirm, self, Dialog.onConfirm, o.danger and "danger" or "primary")
     if o.cancel ~= false then
-        W.button(self, x - bw - 10, y, bw, bh, o.cancel or U.T("Cancel"), self, Dialog.onCancel, "secondary")
+        W.button(self, x - bw - 10, y, bw, bh, cancel, self, Dialog.onCancel, "secondary")
     end
-    self.listY = 50 + #self.msgLines * (fh + 4)
+    self.listY = self.msgY + #self.msgLines * (fh + 4)
 end
 
 function Dialog:onConfirm()
@@ -404,7 +414,7 @@ function Dialog:prerender()
     U.border(self, 0, 0, self.width, self.height, { r = 1, g = 1, b = 1, a = 0.14 })
     local fh = U.fontH()
     U.text(self, self.opts.title or "", 20, 16, "text", UIFont.Medium)
-    local y = 50
+    local y = self.msgY
     for _, l in ipairs(self.msgLines) do
         U.text(self, l, 20, y, "textMuted")
         y = y + fh + 4

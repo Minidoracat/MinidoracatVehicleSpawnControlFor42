@@ -61,7 +61,7 @@
     "IGUI_MVSC_DisableInZone": "Remove from zone",
     "IGUI_MVSC_Discard": "Discard changes",
     "IGUI_MVSC_Double": "Double weight",
-    "IGUI_MVSC_DragHint": "Left-drag rotate · Right-drag pan · Wheel zoom · Double-click reset",
+    "IGUI_MVSC_DragHint": "Left-drag rotate · Right-drag pan · Wheel zoom",
     "IGUI_MVSC_EmptyRight": "Pick a vehicle to see the zones it spawns in. Select several to edit them together.",
     "IGUI_MVSC_EnableEverywhere": "Enable this vehicle again",
     "IGUI_MVSC_Group_Mod": "Added by mods",
