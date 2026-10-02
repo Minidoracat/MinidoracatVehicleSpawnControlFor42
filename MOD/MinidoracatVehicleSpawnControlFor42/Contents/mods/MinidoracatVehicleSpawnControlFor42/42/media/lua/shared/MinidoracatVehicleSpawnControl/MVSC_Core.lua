@@ -1,9 +1,9 @@
 -- MinidoracatVehicleSpawnControl 核心（純邏輯，不碰引擎）：設定驗證、原始分布快照、計算套用後的區域表。
 -- 引擎事實（出處見 AGENTS.md「API 出處對照」與踩坑錄）：
---   * VehicleType.init 以 100/權重總和正規化；權重全 0 會變 NaN 並固定選到最後一台（VehicleType.java:72-81、IsoChunk.java:1318-1330）
+--   * VehicleType.init 以 100/權重總和正規化；權重全 0 會變 NaN 並固定選到最後一台（VehicleType.java:72-81、IsoChunk.java:1322-1334）
 --     → 停用一律「從清單移除」，套用結果不得出現 <= 0 的權重。
---   * 清單為空時 RandomizeModel 回 false，該區域本次不生車（IsoChunk.java:1000-1002,1314-1316）→ 這就是「整區停用」。
---   * spawnRate=0 仍有 1%（IsoChunk.java:992 用 <=），所以不拿 spawnRate 當停用開關。
+--   * 清單為空時 RandomizeModel 回 false，該區域本次不生車（IsoChunk.java:1004-1006,1318-1320）→ 這就是「整區停用」。
+--   * spawnRate=0 仍有 1%（IsoChunk.java:996 用 <=），所以不拿 spawnRate 當停用開關。
 --   * 快取以原樣鍵存入、查詢先轉小寫（VehicleType.java:55,135,160,173）。原版與 MOD 都有大小寫混用的區域鍵
 --     （luxuryDealership、middleClass、MOD 的 SemiTankerOnly），所以設定檔的區域名必須和執行期表的鍵完全相同，不強制小寫。
 require "MinidoracatVehicleSpawnControl/MVSC_Json"
@@ -13,7 +13,7 @@ local M = MinidoracatVehicleSpawnControl
 M.MOD_ID = "MinidoracatVehicleSpawnControlFor42"
 M.LOG = "[MinidoracatVehicleSpawnControlFor42] "
 M.SCHEMA = 1
-M.VANILLA = "pz-vanilla" -- ScriptManager.java:651
+M.VANILLA = "pz-vanilla" -- ScriptManager.java:652
 
 -- 可覆寫的區域參數與範圍（VehicleType.java:20-36,87-133 讀取的數值欄位）
 M.ZONE_PARAMS = {

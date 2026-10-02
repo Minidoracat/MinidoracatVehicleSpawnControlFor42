@@ -12,24 +12,24 @@
 | 需求 | 判定 | 依據 | 做法 |
 |---|---|---|---|
 | 遊戲內面板批量管理 | 可行 | 分布表是 Lua 全域 `VehicleZoneDistribution`（`lua/shared/VehicleZoneDefinition.lua:1-26`） | 伺服器端改表，面板只送意圖 |
-| 自動加入 MOD 車輛 | 可行 | `ScriptManager.getAllVehicleScripts()`（`ScriptManager.java:848-854`） | 開服時列舉全部車輛 script |
-| 原版／MOD 分類 | 可行 | `BaseScriptObject.getLoadedScriptBodies()` 交錯記錄 modId／body（`BaseScriptObject.java:137-144`、`ScriptBucket.java:98-132`），原版為 `pz-vanilla`（`ScriptManager.java:651`）；`getModInfoByID` 取 MOD 名（`LuaManager.java:5364-5368`） | 以來源 modId 分類，**不看 module 名**（MOD 常用 `module Base`） |
-| JSON 改檔自動同步 | 可行（輪詢） | Lua 只能讀寫 `<cacheDir>/Lua/`，沒有 mtime API（`LuaManager.java:5933-5959,6020-6031`） | 每分鐘讀檔比對內容，變了才解析驗證 |
-| 改完立即影響遊戲 | **可行（2026-09-26 實機驗證）** | Java 在第一次生車時把 Lua 表複製成快取（`VehicleType.java:38-126`、`IsoChunk.java:1726-1730`）；`VehicleType.Reset()` 可清快取且類別有對 Lua 公開（`VehicleType.java:231-234`、`LuaManager.java:2440`）；伺服器生車與 Lua 同在主迴圈（`GameServer.java:957`） | 改表後呼叫 `Reset()`，之後新生成的區塊立即採用新比例 |
+| 自動加入 MOD 車輛 | 可行 | `ScriptManager.getAllVehicleScripts()`（`ScriptManager.java:849-855`） | 開服時列舉全部車輛 script |
+| 原版／MOD 分類 | 可行 | `BaseScriptObject.getLoadedScriptBodies()` 交錯記錄 modId／body（`BaseScriptObject.java:137-144`、`ScriptBucket.java:98-132`），原版為 `pz-vanilla`（`ScriptManager.java:652`）；`getModInfoByID` 取 MOD 名（`LuaManager.java:5363-5367`） | 以來源 modId 分類，**不看 module 名**（MOD 常用 `module Base`） |
+| JSON 改檔自動同步 | 可行（輪詢） | Lua 只能讀寫 `<cacheDir>/Lua/`，沒有 mtime API（`LuaManager.java:5932-5958,6019-6030`） | 每分鐘讀檔比對內容，變了才解析驗證 |
+| 改完立即影響遊戲 | **可行（2026-09-26 實機驗證）** | Java 在第一次生車時把 Lua 表複製成快取（`VehicleType.java:38-126`、`IsoChunk.java:1730-1734`）；`VehicleType.Reset()` 可清快取且類別有對 Lua 公開（`VehicleType.java:231-234`、`LuaManager.java:2445`）；伺服器生車與 Lua 同在主迴圈（`GameServer.java:972`） | 改表後呼叫 `Reset()`，之後新生成的區塊立即採用新比例 |
 | 3D 外觀預覽 | 可行（預設塗裝；2026-09-26 非 debug MP 客戶端實機驗證） | `UI3DScene` 的 `createVehicle`／`setVehicleScript`（`UI3DScene.java:590-598,1424-1427`），非 debug 限定 | 單一場景，只在選車時渲染 |
 | 切換塗裝預覽 | **原版 API 做不到** | 場景初始化只取 `getSkin(0)` 並快取（`UI3DScene.java:6101-6111`）；`VehicleScript.skins` 為 private、無修改 API（`VehicleScript.java:102-104`） | 列出塗裝清單並可指定「生成塗裝」；3D 固定顯示第一款 |
-| 切換顏色預覽 | **原版 API 做不到** | 預覽車漆色寫死（`UI3DScene.java:7040-7050`）；真車顏色是生成時隨機 HSV（`BaseVehicle.java:729-772`） | 顯示「隨機車色」或 script 的固定色 |
+| 切換顏色預覽 | **原版 API 做不到** | 預覽車漆色寫死（`UI3DScene.java:7040-7050`）；真車顏色是生成時隨機 HSV（`BaseVehicle.java:732-775`） | 顯示「隨機車色」或 script 的固定色 |
 
 ## 3. 設計必須遵守的限制
 
-1. **只影響之後新生成的區塊。**車輛只在區塊第一次載入且未被車輛資料庫看過時生成（`IsoChunk.java:3708-3710`）；已生成的車不會重抽。介面要明講，不能讓管理員以為整張地圖會重配。
-2. **伺服器是唯一權威。**MP client 不跑生車（`IsoChunk.java:1732` 的 `!GameClient.client`），面板只送意圖，伺服器驗證權限與 schema 後套用。
+1. **只影響之後新生成的區塊。**車輛只在區塊第一次載入且未被車輛資料庫看過時生成（`IsoChunk.java:3712-3714`）；已生成的車不會重抽。介面要明講，不能讓管理員以為整張地圖會重配。
+2. **伺服器是唯一權威。**MP client 不跑生車（`IsoChunk.java:1736` 的 `!GameClient.client`），面板只送意圖，伺服器驗證權限與 schema 後套用。
 3. **權重是相對值。**Java 會把同區域權重正規化成百分比（`VehicleType.java:56-63`），所以面板要同時顯示「權重」和「實際占比」。
 4. **區域不只停車場。**原版有 40 多個區域：一般停車、住宅品質、交通壅塞、品牌／服務車、故事用分布（`trades`、`delivery` 等，`VehicleZoneDefinition.lua:501-577`）；`business2`–`business12` 是 `business` 的別名（`:454-464`），不能當成獨立區域寫回。MOD 也會新增區域，清單以執行期的表為準。
 5. **不是所有車都走區域表。**部分故事事件直接指定車型（例 `RVSAmbulanceCrash.java:57-60`、`RVSRichJerk.java:98-102`），本 MOD 管不到。
 6. **同名車很多。**原版繁中翻譯有 34 個 script 都叫「富蘭克林·瓦盧林」、損毀版也共用名稱（`Translate/CH/IG_UI.json` 的 `IGUI_VehicleName*`）。清單必須顯示 script 名，並能按車款分組批次處理。
 7. **大型資料不整包廣播。**單一命令走 1 MB 緩衝（`UdpConnection.java:39-44`）；按目前區域或搜尋結果分頁傳給 client。
-8. **停用只能「從清單移除」。**權重全為 0 時 `init()` 正規化成 NaN（`VehicleType.java:72-81`），抽選會固定選到清單最後一台（`IsoChunk.java:1318-1330`）；`spawnRate` 設 0 也仍有 1%（`:992`）。停用的車要從該區 `vehicles` 移除；整區停用就是清單為空，該區不再生車（`:1000-1002,1314-1316`）。
+8. **停用只能「從清單移除」。**權重全為 0 時 `init()` 正規化成 NaN（`VehicleType.java:72-81`），抽選會固定選到清單最後一台（`IsoChunk.java:1322-1334`）；`spawnRate` 設 0 也仍有 1%（`:996`）。停用的車要從該區 `vehicles` 移除；整區停用就是清單為空，該區不再生車（`:1004-1006,1318-1320`）。
 9. **區域名大小寫要和表完全一致。**快取以原樣鍵存入（`VehicleType.java:55,135`），查詢時先轉小寫（`:160,173`）。原版本身就有 `luxuryDealership`、`middleClass` 這類混用鍵，MOD 也會加（例如 `SemiTankerOnly`，2026-09-26 E2E 伺服器實見），所以設定檔用執行期表的原樣鍵；只差大小寫時報錯並給正確寫法。[INFERENCE] 依原始碼，混用大小寫的區域在引擎查詢時找不到快取，可能是原版 bug；本 MOD 不修也不依賴它。
 
 ## 4. 資料模型
@@ -82,7 +82,7 @@
 ### 4.3 同步流程（見 `images/D-json-sync-flow.png`）
 
 1. 每次接受的設定都複製到 `backups/config-<1..10>.json`（依修訂號輪流覆寫最近 10 份；Lua 沒有刪檔 API，所以用固定槽）。
-2. 伺服器每 60 秒（真實時間，用 `getTimestampMs` 節流，`LuaManager.java:9268`）讀一次 `config.json`，內容沒變就跳過。遊戲時間事件會隨日長設定變快變慢（`GameTime.java:646-656`），不拿來當計時器。
+2. 伺服器每 60 秒（真實時間，用 `getTimestampMs` 節流，`LuaManager.java:9292`）讀一次 `config.json`，內容沒變就跳過。遊戲時間事件會隨日長設定變快變慢（`GameTime.java:635-644`），不拿來當計時器。
 3. 變了就解析與驗證；失敗時保留舊設定，錯誤寫進 `status.json` 與伺服器 log（面板上線後再通知線上管理員）。開服時設定檔就壞掉，則以原始分布啟動。
 4. 成功就改表 → `VehicleType.Reset()` → 修訂號加一 → 重寫 `catalog.json`／`status.json`（面板上線後通知線上管理員重新整理）。
 5. 管理員在面板編輯期間若檔案被外部修改，按「套用變更」時要求選擇「重新載入」或「覆寫」（沿用 Economy `ECCodec.lua:157-224` 的 stale 比對模式）。
@@ -125,11 +125,11 @@
 
 | 動作 | 需要的權限 | 原版預設誰有 |
 |---|---|---|
-| 看到按鈕、開啟面板、讀取設定 | `Capability.SandboxOptions` | moderator、admin（`Roles.java:448-471`）；gm 沒有（`:408-447`） |
+| 看到按鈕、開啟面板、讀取設定 | `Capability.SandboxOptions` | moderator、admin（`Roles.java:446-469`）；gm 沒有（`:406-445`） |
 | 套用變更、還原修訂 | 同上，**伺服器端**在 `OnClientCommand` 裡再檢查一次 | 同上 |
 
-- 選 `SandboxOptions` 的理由：車輛生成比例屬於世界生成規則，性質和原版「沙盒設定」按鈕相同（原版以同一權限控管，`ISAdminPanelUI.lua:226`；封包層 `PacketTypes.java:411`）。家族 ItemCleaner 的沙盒寫入也用這個權限。
-- 如果要**只限 admin**，改用 `Capability.ChangeAndReloadServerOptions`（moderator 預設被拿掉，`Roles.java:457`）。
+- 選 `SandboxOptions` 的理由：車輛生成比例屬於世界生成規則，性質和原版「沙盒設定」按鈕相同（原版以同一權限控管，`ISAdminPanelUI.lua:226`；封包層 `PacketTypes.java:421`）。家族 ItemCleaner 的沙盒寫入也用這個權限。
+- 如果要**只限 admin**，改用 `Capability.ChangeAndReloadServerOptions`（moderator 預設被拿掉，`Roles.java:455`）。
 - B42 的角色可以在伺服器上自訂，管理員可以把權限發給任何角色，不必改 MOD。
 - UI 上的 `enable` 只是方便使用，真正的防線在伺服器：每個寫入命令都要重新檢查 `player:getRole():hasCapability(...)`。
 
@@ -146,7 +146,7 @@
 
 建議（明顯加分）：
 
-7. **區域數量參數**：每格生成機率、燒毀車、特殊車、車況、鑰匙機率；並唯讀顯示沙盒的 `CarSpawnRate`，說明它與區域參數的關係（`IsoChunk.java:963-982`）。
+7. **區域數量參數**：每格生成機率、燒毀車、特殊車、車況、鑰匙機率；並唯讀顯示沙盒的 `CarSpawnRate`，說明它與區域參數的關係（`IsoChunk.java:967-986`）。
 8. **指定生成塗裝**：區域表本來就能指定塗裝（`index`，`-1` 為隨機），可取代做不到的 3D 塗裝切換。
 9. **故事分布分類**：`trades`、`delivery` 等表可以調，放在「進階」分組並註明只影響使用這些表的故事事件。
 10. **權限**：沿用原版角色權限，見第 5.2 節。
@@ -159,13 +159,15 @@
 
 ## 7. 實機驗證結果（2026-09-26，E2E `spike-mp`，42.20.4 no-Steam 專用伺服器＋一般模式客戶端，9 步 9 檢查 PASS）
 
-1. **`VehicleType.Reset()` 可以在執行中的伺服器使用。**所有區域改成只生救護車並 `Reset()` 後，路易斯維爾新區塊 5/5、Rosewood 新區塊 10/10 都是救護車；基準區（改表前）0/2。移動途中每秒連續 `Reset()` 20 次也沒有錯誤或例外。這符合原始碼：伺服器生車（`ServerMap.preupdate` → `Load2` → `AddVehicles`）和 Lua 同在主迴圈（`GameServer.java:957`），不會競態。**設計採「立即生效」，不需要重啟。**
+1. **`VehicleType.Reset()` 可以在執行中的伺服器使用。**所有區域改成只生救護車並 `Reset()` 後，路易斯維爾新區塊 5/5、Rosewood 新區塊 10/10 都是救護車；基準區（改表前）0/2。移動途中每秒連續 `Reset()` 20 次也沒有錯誤或例外。這符合原始碼：伺服器生車（`ServerMap.preupdate` → `Load2` → `AddVehicles`）和 Lua 同在主迴圈（`GameServer.java:972`），不會競態。**設計採「立即生效」，不需要重啟。**
 2. **套用時機不受限。**檔案載入、`OnGameBoot`、`OnInitWorld`、`OnInitGlobalModData`、`OnLoadMapZones`、`OnServerStarted` 塞進的哨兵區域全部進了快取；第一台車在 `OnServerStarted` 之後才生成（玩家連線時）。正式 MOD 在 `OnServerStarted` 套用設定並呼叫一次 `Reset()`，之後每次設定變更也是「改表 → `Reset()`」，不必依賴載入順序或 `loadModAfter`。
    - `VehicleType.vehicles` 靜態欄位 Lua 讀得到（`VehicleType.vehicles:size()`；本輪 70 個區域鍵，含 6 個哨兵與測試伺服器範本啟用的其他 MOD），可用來做健康檢查。
 3. **3D 預覽在一般 MP 客戶端可用。**非 debug 客戶端建立 `ISUI3DScene` → `createVehicle` → `setVehicleScript` 顯示 `Base.StepVanMail`，切到 `Base.CarLuxury` 也立即換模型（截圖 `temp/e2e-spike/preview*.png`，本機）。兩台都是原版車；若初始化當下模型還沒載入，場景會一直空白，直到再次 `setVehicleScript`（`UI3DScene.java:6101-6105,6382-6387`），MOD 車第一次顯示時要在實作中處理。`setZoom 8` 對 640×400 的場景太近，實作時要依車身長度調整縮放。
 4. **JSON 解析**：原版沒有 Lua JSON 函式庫；複製 Economy 的 `ECCore.lua` codec 到本 MOD 命名空間（第三個 consumer 出現時再抽共用）。
 
 單人模式的事件順序沒有實測；因為一律「改表 → `Reset()`」，不受影響。
+
+**42.21.0 重驗（2026-10-02）**：`VehicleType.java`、`UI3DScene.java` 與 42.20.4 逐位元組相同，`IsoChunk` 的生車流程（`AddVehicles`、`RandomizeModel`）未改；`spike-mp` 重跑 PASS（哨兵六個事件全進快取、Reset 後 A 4/4、B 10/10 為標記車、預覽兩張車體正常），上述結論不變。原版區域表與車輛 script 也沒有變（`core-mp` 收回的目錄與 42.20.4 相同）。
 
 ## 8. 待決定
 

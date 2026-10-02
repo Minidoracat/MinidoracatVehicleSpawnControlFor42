@@ -2,8 +2,8 @@
 --   開服：快照原始 VehicleZoneDistribution → 列舉車輛 script 與來源 MOD → 讀 config.json → 改表 → VehicleType.Reset()
 --   之後每 60 秒（真實時間）讀一次 config.json，內容變了才解析、驗證、套用。
 -- 引擎事實：改表後必須 Reset() 才會生效；Reset 與生車同在伺服器主迴圈，可隨時呼叫
---   （VehicleType.java:231-234、GameServer.java:957；E2E spike-mp 2026-09-26 實機驗證）。
--- 檔案都在 <cacheDir>/Lua/MinidoracatVehicleSpawnControl/（getFileReader/Writer 的根，LuaManager.java:5933-5959,6725-6757）。
+--   （VehicleType.java:231-234、GameServer.java:972；E2E spike-mp 2026-09-26 實機驗證）。
+-- 檔案都在 <cacheDir>/Lua/MinidoracatVehicleSpawnControl/（getFileReader/Writer 的根，LuaManager.java:5932-5958,6723-6755）。
 if isClient() then return end
 require "MinidoracatVehicleSpawnControl/MVSC_Core"
 

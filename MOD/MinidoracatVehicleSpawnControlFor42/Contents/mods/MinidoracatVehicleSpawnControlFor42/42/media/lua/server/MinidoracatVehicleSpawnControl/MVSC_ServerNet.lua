@@ -1,8 +1,8 @@
 -- MinidoracatVehicleSpawnControl 伺服器端網路命令（管理面板）。
 --   權限：每個命令都在伺服器重新檢查 Capability.SandboxOptions（原版「沙盒設定」同一權限，ISAdminPanelUI.lua:226；
---   預設 moderator／admin 有，Roles.java:448-471）。UI 的 enable 只是方便，不是防線。
+--   預設 moderator／admin 有，Roles.java:446-469）。UI 的 enable 只是方便，不是防線。
 --   傳輸：目錄與區域分批送（單一命令走 1 MB 緩衝，UdpConnection.java:39-44）。
---   單人：sendServerCommand 在非伺服器端是 no-op（LuaManager.java:8942-8946），所以直接呼叫 client 的處理函式。
+--   單人：sendServerCommand 在非伺服器端是 no-op（LuaManager.java:8966-8970），所以直接呼叫 client 的處理函式。
 if isClient() then return end
 require "MinidoracatVehicleSpawnControl/MVSC_Server"
 
@@ -124,7 +124,7 @@ end
 
 -- 任何來源套用或拒絕後，通知線上有權限的人（面板開著就會提示重新載入）
 -- 開服套用時伺服器網路還沒啟動：OnInitGlobalModData 早於 GameServer.startServer 建立 udpEngine，
--- 這時 getOnlinePlayers 會 NPE（GameServer.java:3560）；也沒有人在線，直接略過。
+-- 這時 getOnlinePlayers 會 NPE（GameServer.java:3575）；也沒有人在線，直接略過。
 S.notify = function(ok, source, errors)
     if source == "boot" then return end
     local args = { ok = ok, source = source, revision = S.state and S.state.revision or 0, errors = errors }

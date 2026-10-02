@@ -46,7 +46,7 @@ local function javaList(items)
     return { size = function() return #items end, get = function(_, i) return items[i + 1] end, _raw = items }
 end
 
--- 假檔案系統：getFileWriter 只允許 ini/cfg/txt/log/json（LuaManager.java:1034），其他副檔名回 nil（家族 e2e.md 踩坑錄）
+-- 假檔案系統：getFileWriter 只允許 ini/cfg/txt/log/json（LuaManager.java:1035），其他副檔名回 nil（家族 e2e.md 踩坑錄）
 local FS = {}
 local ALLOWED = { ini = true, cfg = true, txt = true, log = true, json = true }
 function getFileReader(path, _)
@@ -102,7 +102,7 @@ local admin = true
 ME.getRole = function() return { hasCapability = function(_, cap) return admin and cap == "SandboxOptions" end } end
 Capability = { SandboxOptions = "SandboxOptions" }
 function getPlayer() return ME end
--- 真引擎：開服套用（OnInitGlobalModData）時 udpEngine 還沒建立，getOnlinePlayers 會 NPE（GameServer.java:3560）
+-- 真引擎：開服套用（OnInitGlobalModData）時 udpEngine 還沒建立，getOnlinePlayers 會 NPE（GameServer.java:3575）
 local serverStarted = false
 function getOnlinePlayers()
     if not serverStarted then error("NullPointerException: GameServer.udpEngine is null") end

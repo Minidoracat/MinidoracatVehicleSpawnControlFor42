@@ -346,7 +346,7 @@ function Tab:render()
         U.text(self, label, x, self.paramY, "textMuted")
         U.text(self, v and (U.num(v * p.scale) .. "%") or "-", x + tm:MeasureStringX(UIFont.Small, label) + 8, self.paramY, "text")
     end
-    -- 沙盒「車輛產生率」再乘上每格生成機率（IsoChunk.java:981-987）；標籤沿用原版沙盒翻譯
+    -- 沙盒「車輛產生率」再乘上每格生成機率（IsoChunk.java:985-991）；標籤沿用原版沙盒翻譯
     local rate = SandboxVars and SandboxVars.CarSpawnRate or 4
     local rateLabel = getTextOrNull("Sandbox_CarSpawnRate_option" .. tostring(rate)) or tostring(rate)
     local noteY = self.noteY
