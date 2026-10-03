@@ -33,6 +33,7 @@ description=[*] [b]Config file sync[/b]: save the file and it applies; a mistake
 description=[*] [b]History and restore[/b]: see who changed what and roll back to an earlier revision
 description=[*] [b]Vanilla permissions[/b]: in multiplayer, only roles with the Sandbox Options permission can make changes
 description=[/list]
+description=📖 [b]Config file fields, feature details, known limitations and FAQ:[/b] [url=https://steamcommunity.com/workshop/filedetails/discussion/3812410742/586187704184634439/]Vehicle Spawn Control Guide: Panel & Config File[/url]
 description=
 description=[h2]🔗 More Minidoracat mods[/h2]
 description=All my mods are in the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3809297109]Minidoracat Mods for B42 collection[/url] — pick what you need.

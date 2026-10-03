@@ -30,6 +30,7 @@ Adjust how many vehicles spawn in each zone and which ones, from an in-game pane
 [*] [b]History and restore[/b]: see who changed what and roll back to an earlier revision
 [*] [b]Vanilla permissions[/b]: in multiplayer, only roles with the Sandbox Options permission can make changes
 [/list]
+📖 [b]Config file fields, feature details, known limitations and FAQ:[/b] [url=https://steamcommunity.com/workshop/filedetails/discussion/3812410742/586187704184634439/]Vehicle Spawn Control Guide: Panel & Config File[/url]
 
 [h2]🔗 More Minidoracat mods[/h2]
 All my mods are in the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3809297109]Minidoracat Mods for B42 collection[/url] — pick what you need.

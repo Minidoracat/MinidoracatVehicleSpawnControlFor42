@@ -30,6 +30,7 @@
 [*] [b]変更履歴と復元[/b]：誰が何を変えたかを記録し、以前のリビジョンに戻せます
 [*] [b]バニラの権限を使用[/b]：マルチではサンドボックス設定の権限を持つロールだけが変更できます
 [/list]
+📖 [b]設定ファイルの項目、各機能の詳細、既知の制限、よくある質問：[/b][url=https://steamcommunity.com/workshop/filedetails/discussion/3812410742/586187704184634439/]Vehicle Spawn Control Guide: Panel & Config File[/url]（英語）
 
 [h2]🔗 Minidoracat の MOD 一覧[/h2]
 すべての MOD を[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3809297109]Minidoracat 全シリーズ コレクション[/url]にまとめています。必要なものを選んでサブスクライブしてください。

@@ -30,6 +30,7 @@
 [*] [b]變更紀錄與還原[/b]：記下誰改了什麼，可退回之前的版本
 [*] [b]沿用原版權限[/b]：多人只有具備沙盒設定權限的角色能修改
 [/list]
+📖 [b]設定檔欄位、每項功能的細節、已知限制與常見問題：[/b][url=https://steamcommunity.com/workshop/filedetails/discussion/3812410742/586187704184634450/]Vehicle Spawn Control 完整說明：面板操作與設定檔[/url]
 
 [h2]🔗 Minidoracat 全系列[/h2]
 其他作品都在[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3809297109]Minidoracat 全系列收藏[/url]，依需求自選訂閱。

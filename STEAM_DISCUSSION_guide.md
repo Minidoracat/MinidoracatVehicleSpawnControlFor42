@@ -1,8 +1,8 @@
 <!-- Steam 討論區貼文稿源（繁中）；簡介只放摘要，詳細內容以本串為準 -->
-<!-- 討論串網址：（首發後建立） -->
+<!-- 討論串網址：https://steamcommunity.com/workshop/filedetails/discussion/3812410742/586187704184634450/ -->
 <!-- 標題：📖 Vehicle Spawn Control 完整說明：面板操作與設定檔 -->
 
-[b]English version:[/b] [url={VSC_GUIDE_EN}]Vehicle Spawn Control Guide: Panel & Config File[/url]
+[b]English version:[/b] [url=https://steamcommunity.com/workshop/filedetails/discussion/3812410742/586187704184634439/]Vehicle Spawn Control Guide: Panel & Config File[/url]
 
 車輛生成控制讓伺服器管理員（或單人玩家）決定：世界生成新車時，各區域生成多少車、生成哪些車。可以在遊戲內面板操作，也可以直接編輯設定檔。本串整理每項功能、設定檔格式、已知限制與常見問題。
 

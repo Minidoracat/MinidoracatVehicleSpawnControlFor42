@@ -1,8 +1,8 @@
 <!-- Steam discussion post source (English); the description is a summary, this thread is the full reference -->
-<!-- Thread URL: (create after the first upload) -->
+<!-- Thread URL: https://steamcommunity.com/workshop/filedetails/discussion/3812410742/586187704184634439/ -->
 <!-- Title: 📖 Vehicle Spawn Control Guide: Panel & Config File -->
 
-[b]繁體中文版：[/b] [url={VSC_GUIDE_ZH}]Vehicle Spawn Control 完整說明：面板操作與設定檔[/url]
+[b]繁體中文版：[/b] [url=https://steamcommunity.com/workshop/filedetails/discussion/3812410742/586187704184634450/]Vehicle Spawn Control 完整說明：面板操作與設定檔[/url]
 
 Vehicle Spawn Control lets server admins (or singleplayer players) decide how many vehicles spawn in each zone and which ones, whenever the world generates new vehicles. You can use the in-game panel or edit the config file directly. This thread covers every feature, the config file format, known limitations and FAQ.
 
