@@ -1,6 +1,6 @@
 -- MinidoracatVehicleSpawnControl JSON：解碼沿用 MinidoracatEconomyFor42 ECCore.lua 的 jsonDecode（家族第二個 consumer，
 -- 第三個出現時再抽共用）；編碼改成縮排輸出，因為 config.json 是給管理員手動編輯的。
--- Kahlua 沒有 next／assert／xpcall，排序用 M.sortSafe（table.sort 是遞迴 quicksort，verify_mod.py 禁用）。
+-- Kahlua 沒有 next／xpcall（assert 由遊戲 stdlib.lua 定義），排序用 M.sortSafe（table.sort 是遞迴 quicksort，verify_mod.py 禁用）。
 MinidoracatVehicleSpawnControl = MinidoracatVehicleSpawnControl or {}
 local M = MinidoracatVehicleSpawnControl
 
