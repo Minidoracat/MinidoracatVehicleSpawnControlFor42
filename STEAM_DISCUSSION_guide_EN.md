@@ -46,7 +46,7 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [h3]3D preview and paint swatches[/h3]
 [list]
 [*] Left-drag to rotate, right-drag to pan, scroll to zoom, double-click to reset; front, side and top buttons are there too.
-[*] The preview always shows the first paint job and the default color; that is a limit of the game's preview widget. Vehicles with several paint jobs list a texture swatch for each one under the preview; hover a swatch to enlarge it.
+[*] The preview always shows the first paint job and the default color. This is a game engine limit: the game's 3D preview only loads each vehicle's first paint job and offers no way to switch it. Spawned vehicles are not affected and still use every paint job. Vehicles with several paint jobs list a texture swatch for each one under the preview; hover a swatch to enlarge it.
 [/list]
 
 [h3]Batch edits[/h3]
@@ -125,7 +125,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [list]
 [*] Only areas generated for the first time from now on are affected; areas that already generated keep their vehicles.
 [*] Some random events spawn a fixed vehicle type (certain crash scenes, for example) without using the zone distribution, so this mod cannot change them.
-[*] The 3D preview can only show the first paint job and the default color; other paint jobs are shown as texture swatches.
+[*] Because of a game engine limit, the 3D preview can only show the first paint job and the default color (spawned vehicles are not affected); other paint jobs are shown as texture swatches.
 [*] The config file lives in the user folder, so every singleplayer save and self-hosted server using that folder shares one config.
 [/list]
 
