@@ -1,4 +1,4 @@
--- 入口：原版管理面板（多人）最後一格加「車輛生成控制」；debug 選單（單人測試）。
+-- 入口：多人在原版管理面板最後一格加「車輛生成控制」；單人在地上按右鍵的選單加同名項目。
 -- 原版在 create() 內加完所有按鈕、依標題排序排成兩欄、最後放「關閉」（ISAdminPanelUI.lua:157-189）。
 -- 這裡等原函式跑完才把按鈕放進下一格，不改動任何原版按鈕的位置或排序（使用者要求）。
 require "ISUI/AdminPanel/ISAdminPanelUI"
@@ -60,12 +60,12 @@ if ISAdminPanelUI then
     end
 end
 
--- 單人沒有管理面板（ISEquippedItem.lua:905 只在 isClient() 建立），debug 模式由 debug 選單開啟
-local okDebug = pcall(require, "DebugUIs/DebugMenu/ISDebugMenu")
-if okDebug and ISDebugMenu then
-    local origSetup = ISDebugMenu.setupButtons
-    function ISDebugMenu:setupButtons()
-        self:addButtonInfo(U.T("Title"), function() MVSC_Panel.toggle() end, "MAIN")
-        origSetup(self)
-    end
+-- 單人：原版管理面板只在多人建立（ISEquippedItem.lua:905），改在地上按右鍵的選單加一項（使用者 2026-10-03 選定）。
+-- 本機玩家就是擁有者，不另檢查權限（伺服器端 canAdmin 在非伺服器同樣放行）。
+-- 事件參數 (playerNum, context, worldobjects, test)：ISWorldObjectContextMenu.lua:213；test 是手把的預檢，
+-- 只問有沒有選項（:122-126,216），不參與。addOption(name, target, onSelect)：ISContextMenu.lua:873-887，點選時呼叫 onSelect(target)（:70）。
+local function onFillWorld(playerNum, context, worldobjects, test)
+    if test or playerNum ~= 0 or isClient() or isServer() then return end
+    context:addOption(U.T("Title"), nil, function() MVSC_Panel.toggle() end)
 end
+Events.OnFillWorldObjectContextMenu.Add(onFillWorld)

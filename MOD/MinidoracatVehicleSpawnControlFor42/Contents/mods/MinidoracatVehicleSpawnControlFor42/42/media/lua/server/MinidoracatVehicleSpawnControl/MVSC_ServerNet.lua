@@ -16,7 +16,7 @@ N.ZONE_BATCH = 8
 N.VEHICLE_BATCH = 60
 
 function N.canAdmin(player)
-    if not isServer() then return true end -- 單人：本機玩家就是擁有者（入口只在 debug 選單出現）
+    if not isServer() then return true end -- 單人：本機玩家就是擁有者（入口在地上按右鍵的選單）
     local role = player and player:getRole()
     return role ~= nil and role:hasCapability(Capability.SandboxOptions)
 end

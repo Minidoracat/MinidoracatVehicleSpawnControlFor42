@@ -118,7 +118,7 @@
 
 - 原版在 `create()` 裡先加入所有按鈕，再依標題排序、排成兩欄，最後把「關閉」放在底部（`ISAdminPanelUI.lua:157-189`）。**本 MOD 的按鈕固定排在所有原版按鈕之後，不改動任何原版按鈕的位置。**做法是包裝 `create`：等原函式跑完，再把按鈕放進兩欄格子的下一格，寬度與間距沿用原版按鈕（`getWidth()`、`BUTTON_HGT`、`UI_BORDER_SPACING`）；接著把 `self.cancel` 下移一列，並用 `setHeight` 撐高面板。Workshop 上有 MOD 把按鈕直接貼在右下角（Skill Recovery Journal），會和「關閉」鈕搶位置，不採用。
 - 另外包裝 `updateButtons`：先呼叫原函式（可能因權限不足直接關掉面板並 return，`:194-240`），再依權限設定本按鈕的 `enable`。原版在權限變動時會重新呼叫它（`RefreshCheats`、`OnRolesReceived`，`:412-441`），所以不需要自己輪詢。
-- 管理面板只在多人連線時出現：左側圖示在 `isClient()` 內才建立（`ISEquippedItem.lua:905,939-941`），顯示條件是 `Role:hasAdminTool()`（`:147`、`Role.java:193-209`）。**單人模式沒有這個入口**；單人玩家改用 JSON 檔。debug 模式則照 Skill Recovery Journal 的做法，在 `ISDebugMenu` 加一顆按鈕，方便實機測試。
+- 管理面板只在多人連線時出現：左側圖示在 `isClient()` 內才建立（`ISEquippedItem.lua:905,939-941`），顯示條件是 `Role:hasAdminTool()`（`:147`、`Role.java:193-209`）。**單人改在地上按右鍵的選單加一項「車輛生成控制」**（2026-10-03 使用者選定，取代原本只有 debug 選單的入口）：`OnFillWorldObjectContextMenu`（`ISWorldObjectContextMenu.lua:213`）只在非多人時加這一項；本機玩家就是擁有者，不檢查權限。
 - 面板本身沿用原版管理工具的慣例：`ISCollapsableWindow`、單一實例、再按一次就關閉。
 
 **權限：沿用原版角色權限（Role／Capability），不另建名單。**
@@ -165,7 +165,7 @@
 3. **3D 預覽在一般 MP 客戶端可用。**非 debug 客戶端建立 `ISUI3DScene` → `createVehicle` → `setVehicleScript` 顯示 `Base.StepVanMail`，切到 `Base.CarLuxury` 也立即換模型（截圖 `temp/e2e-spike/preview*.png`，本機）。兩台都是原版車；若初始化當下模型還沒載入，場景會一直空白，直到再次 `setVehicleScript`（`UI3DScene.java:6101-6105,6382-6387`），MOD 車第一次顯示時要在實作中處理。`setZoom 8` 對 640×400 的場景太近，實作時要依車身長度調整縮放。
 4. **JSON 解析**：原版沒有 Lua JSON 函式庫；複製 Economy 的 `ECCore.lua` codec 到本 MOD 命名空間（第三個 consumer 出現時再抽共用）。
 
-單人模式的事件順序沒有實測；因為一律「改表 → `Reset()`」，不受影響。
+**單人（2026-10-03，E2E `core-sp`，42.21.0 一般模式、不帶 `-debug`）**：`OnInitGlobalModData` 開服即建立設定檔並套用修訂 1；真的在地上按右鍵出現入口、點選後開啟面板；經面板套用、外部改檔經輪詢套用都生效，新區塊 14/14 為標記車；壞檔被拒且保留舊設定。結論與多人相同。
 
 **42.21.0 重驗（2026-10-02）**：`VehicleType.java`、`UI3DScene.java` 與 42.20.4 逐位元組相同，`IsoChunk` 的生車流程（`AddVehicles`、`RandomizeModel`）未改；`spike-mp` 重跑 PASS（哨兵六個事件全進快取、Reset 後 A 4/4、B 10/10 為標記車、預覽兩張車體正常），上述結論不變。原版區域表與車輛 script 也沒有變（`core-mp` 收回的目錄與 42.20.4 相同）。
 
