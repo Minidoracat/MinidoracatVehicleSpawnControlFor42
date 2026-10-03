@@ -75,7 +75,7 @@ Project Zomboid Build 42 MOD。
 
 ## 安裝
 
-- Steam Workshop：尚未上架（上架後補上連結）
+- Steam Workshop：https://steamcommunity.com/sharedfiles/filedetails/?id=3812410742
 - **必要前置 MOD**：[Minidoracat UI Library](https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701)（`require=MinidoracatUIFor42`；沒有訂閱時本 MOD 不會載入）
 - 專用伺服器：`Mods=` 加入 `MinidoracatUIFor42` 與 `MinidoracatVehicleSpawnControlFor42`，`WorkshopItems=` 加入兩者的 Workshop ID
 - 手動安裝：把 `MOD/MinidoracatVehicleSpawnControlFor42/Contents/mods/MinidoracatVehicleSpawnControlFor42` 複製到 `%USERPROFILE%\Zomboid\mods\`

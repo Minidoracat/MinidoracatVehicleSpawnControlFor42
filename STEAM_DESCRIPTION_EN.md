@@ -47,5 +47,5 @@ The mod is free and always will be. If you enjoy it, consider buying me a coffee
 
 [b]#Minidoracat[/b]
 
-Workshop ID: Not assigned
+Workshop ID: 3812410742
 Mod ID: MinidoracatVehicleSpawnControlFor42

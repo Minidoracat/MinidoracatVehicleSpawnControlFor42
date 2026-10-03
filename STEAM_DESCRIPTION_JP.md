@@ -47,5 +47,5 @@
 
 [b]#Minidoracat[/b]
 
-Workshop ID: 未割り当て
+Workshop ID: 3812410742
 Mod ID: MinidoracatVehicleSpawnControlFor42

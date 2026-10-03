@@ -47,5 +47,5 @@ MOD 永遠免費。喜歡的話可以請我喝杯咖啡，贊助會用在伺服�
 
 [b]#Minidoracat[/b]
 
-Workshop ID: 尚未指派
+Workshop ID: 3812410742
 Mod ID: MinidoracatVehicleSpawnControlFor42
