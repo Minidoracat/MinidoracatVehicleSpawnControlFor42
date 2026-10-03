@@ -133,6 +133,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [list]
 [*] [b]I changed the settings but the cars on the road are the same?[/b] Settings only affect areas generated from now on; check a place you have not visited yet.
 [*] [b]I raised a weight but the total number of cars did not go up?[/b] Weights are relative within a zone. For more cars, raise the per-slot spawn chance or the sandbox Vehicle Spawn Rate.
+[*] [b]Why can't the 3D preview switch paint jobs, and why is the color always the same?[/b] It is a game engine limit: the game's 3D preview only loads each vehicle's first paint job and default color and has no way to switch them. Spawned vehicles are not affected; hover the swatches under the preview to see the other paint jobs.
 [*] [b]How do I make one mod's vehicles rarer?[/b] On the Vehicles tab, pick that mod and lower its pack multiplier.
 [*] [b]My config edit did not apply?[/b] Check the errors in status.json or on the panel's Config file tab; a mistake keeps the previous settings.
 [*] [b]I just installed a vehicle mod and do not want it to appear yet?[/b] Set newVehicles to "disable", then enable vehicles one by one once you are happy.

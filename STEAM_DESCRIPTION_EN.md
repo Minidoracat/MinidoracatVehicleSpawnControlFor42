@@ -24,7 +24,7 @@ Adjust how many vehicles spawn in each zone and which ones, from an in-game pane
 [*] [b]Automatic vehicle list[/b]: vanilla and every modded vehicle, labeled with the mod that adds it
 [*] [b]Spawn amount[/b]: change each zone's spawn chance and its burnt and special vehicle odds
 [*] [b]Vehicle mix[/b]: scale a whole mod at once, or tune one vehicle's weight in each zone
-[*] [b]3D preview and paint swatches[/b]: rotate any vehicle; a game engine limit keeps the 3D preview on the default paint, so every paint job is shown as a swatch
+[*] [b]3D preview and paint swatches[/b]: a game engine limit keeps the 3D preview on the default paint, so every paint job is also shown as a swatch
 [*] [b]Batch edits[/b]: select several vehicles to change multipliers, disable them or add them to zones
 [*] [b]Config file sync[/b]: save the file and it applies; a mistake keeps the old settings and points to the error
 [*] [b]History and restore[/b]: see who changed what and roll back to an earlier revision
