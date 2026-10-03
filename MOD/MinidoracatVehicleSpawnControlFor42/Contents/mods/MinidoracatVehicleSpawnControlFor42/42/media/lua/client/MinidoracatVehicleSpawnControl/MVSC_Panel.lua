@@ -78,7 +78,9 @@ function Sync:render()
     local x = IN
     if W.icon(self, failed and "close" or "clipboardCheck", x, L.head + 2, 20, failed and "errorText" or "text") then x = x + 28 end
     U.text(self, failed and T("SyncFailed") or T("SyncOk"), x, L.head, failed and "errorText" or "text", UIFont.Medium)
-    U.text(self, T("SyncDetail", tostring(st.revision or C.data.revision), U.sourceLabel(st.source), U.ago(st.checkedAt)), IN, L.detail, "textMuted")
+    local src, at = st.source, st.checkedAt -- 被拒時描述那次失敗的檢查
+    if not failed then src, at = C.revisionOrigin() end
+    U.text(self, T("SyncDetail", tostring(st.revision or C.data.revision), U.sourceLabel(src), U.ago(at)), IN, L.detail, "textMuted")
     U.text(self, T("ConfigPath") .. "  Zomboid/Lua/MinidoracatVehicleSpawnControl/config.json", IN, L.path, "textMuted")
     U.text(self, U.fit(T("SyncHint"), self.width - IN * 2), IN, L.hint, "textFaint")
     U.text(self, T("NewPolicy"), IN, L.policyLabel, "text")
@@ -376,7 +378,9 @@ function P:prerender()
     else
         local st = C.data.status or {}
         local bad = st.ok == false
-        text = T(bad and "BarFileError" or "BarSynced", tostring(C.data.revision), U.sourceLabel(st.source), U.ago(st.checkedAt))
+        local src, at = st.source, st.checkedAt -- 被拒時描述那次失敗的檢查
+        if not bad then src, at = C.revisionOrigin() end
+        text = T(bad and "BarFileError" or "BarSynced", tostring(C.data.revision), U.sourceLabel(src), U.ago(at))
         token, icon = bad and "errorText" or "textMuted", bad and "close" or "clipboardCheck"
     end
     local x = 18

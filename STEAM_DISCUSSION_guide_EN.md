@@ -57,14 +57,14 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 
 [h3]Config file sync[/h3]
 [list]
-[*] config.json is checked once a minute and only re-read when its content changed; a valid file is applied and status.json is updated.
+[*] config.json is checked once a minute and only re-read when its content changed; a valid file is applied and status.json is updated. If the server option PauseEmpty is on (the default), nothing is checked while no player is online; it waits until someone joins.
 [*] A mistake rejects the whole file and keeps the settings that were already in effect; status.json and the panel's Config file tab show the line or field and how to fix it.
 [*] If someone edits the file while you are editing in the panel, you are asked before your changes overwrite it.
 [/list]
 
 [h3]History and restore[/h3]
 [list]
-[*] Every apply records the revision, time, source (panel, config file, startup or restore), who made it and what changed.
+[*] Every apply records the revision, time, source (panel, config file, startup or restore), who made it and what changed. A restart with unchanged settings does not add an entry.
 [*] You can restore any of the last 10 revisions that were in effect.
 [*] Edits made to the config file while the server was offline are listed at the next startup.
 [/list]
@@ -127,6 +127,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [*] Some random events spawn a fixed vehicle type (certain crash scenes, for example) without using the zone distribution, so this mod cannot change them.
 [*] Because of a game engine limit, the 3D preview can only show the first paint job and the default color (spawned vehicles are not affected); other paint jobs are shown as texture swatches.
 [*] The config file lives in the user folder, so every singleplayer save and self-hosted server using that folder shares one config.
+[*] With the server option PauseEmpty on, the whole server pauses while no player is online, so config file edits only apply once someone joins; this is how the game itself works.
 [/list]
 
 [h2]❓ FAQ[/h2]
@@ -135,7 +136,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [*] [b]I raised a weight but the total number of cars did not go up?[/b] Weights are relative within a zone. For more cars, raise the per-slot spawn chance or the sandbox Vehicle Spawn Rate.
 [*] [b]Why can't the 3D preview switch paint jobs, and why is the color always the same?[/b] It is a game engine limit: the game's 3D preview only loads each vehicle's first paint job and default color and has no way to switch them. Spawned vehicles are not affected; hover the swatches under the preview to see the other paint jobs.
 [*] [b]How do I make one mod's vehicles rarer?[/b] On the Vehicles tab, pick that mod and lower its pack multiplier.
-[*] [b]My config edit did not apply?[/b] Check the errors in status.json or on the panel's Config file tab; a mistake keeps the previous settings.
+[*] [b]My config edit did not apply?[/b] Check the errors in status.json or on the panel's Config file tab; a mistake keeps the previous settings. If no player is online and PauseEmpty is on, it applies once someone joins.
 [*] [b]I just installed a vehicle mod and do not want it to appear yet?[/b] Set newVehicles to "disable", then enable vehicles one by one once you are happy.
 [*] [b]Does it work with other mods that change the vehicle distribution?[/b] Changes made before startup are picked up normally. Changes another mod makes after startup are overwritten the next time this mod applies its settings.
 [*] [b]What happens if I remove this mod?[/b] The distribution goes back to vanilla and each mod's own settings, vehicles that already spawned stay in the world, and the config folder stays on disk without affecting saves.

@@ -82,9 +82,10 @@
 ### 4.3 同步流程（見 `images/D-json-sync-flow.png`）
 
 1. 每次接受的設定都複製到 `backups/config-<1..10>.json`（依修訂號輪流覆寫最近 10 份；Lua 沒有刪檔 API，所以用固定槽）。
-2. 伺服器每 60 秒（真實時間，用 `getTimestampMs` 節流，`LuaManager.java:9292`）讀一次 `config.json`，內容沒變就跳過。遊戲時間事件會隨日長設定變快變慢（`GameTime.java:635-644`），不拿來當計時器。
+2. 伺服器每 60 秒（真實時間，用 `getTimestampMs` 節流，`LuaManager.java:9292`）讀一次 `config.json`，內容沒變就跳過。遊戲時間事件會隨日長設定變快變慢（`GameTime.java:635-644`），不拿來當計時器。輪詢掛在 `OnTick`：伺服器設定 `PauseEmpty=true`（預設）且沒有玩家在線時，`IngameState` 整個暫停、不跑 `OnTick`（`IngameState.java:1516-1520,1562-1563`），改檔要等有人上線才會套用（2026-10-03 E2E `reboot-mp` 實見）。
 3. 變了就解析與驗證；失敗時保留舊設定，錯誤寫進 `status.json` 與伺服器 log（面板上線後再通知線上管理員）。開服時設定檔就壞掉，則以原始分布啟動。
 4. 成功就改表 → `VehicleType.Reset()` → 修訂號加一 → 重寫 `catalog.json`／`status.json`（面板上線後通知線上管理員重新整理）。
+   開服時每次都要重套（重開服後分布表回到原狀），但和上一筆變更紀錄的設定相同時，不加修訂號、不備份、不寫紀錄，只更新 `catalog.json`／`status.json`；開服時發現檔案改過（或沒有上一筆可比）才記成新修訂（2026-10-03 服主要求：原本每次重啟都多一筆「與前一版內容相同」，10 個備份槽幾天內就被同一份設定洗掉）。
 5. 管理員在面板編輯期間若檔案被外部修改，按「套用變更」時要求選擇「重新載入」或「覆寫」（沿用 Economy `ECCodec.lua:157-224` 的 stale 比對模式）。
 
 ## 5. 介面候選

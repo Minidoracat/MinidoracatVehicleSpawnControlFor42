@@ -418,6 +418,57 @@ Cl.setMultiplier("vehicles", "MilPack.M35", 1)
 check(Cl.draft.vehicles["MilPack.M35"] and Cl.draft.vehicles["MilPack.M35"].enabled == false, "清掉車輛倍率不會連停用一起清掉")
 Cl.discard()
 
+-- 生效表的指紋（區域權重、塗裝序號與參數；jsonEncode 依鍵排序）
+local function liveFingerprint()
+    local out = {}
+    for zone, def in pairs(VehicleZoneDistribution) do
+        local p = {}
+        for k in pairs(M.ZONE_PARAMS) do p[k] = def[k] end
+        out[zone] = { vehicles = def.vehicles, params = p }
+    end
+    return M.jsonEncode(out)
+end
+
+print("情境十八：重開服但設定沒變：照常套用，不新增修訂、備份與紀錄")
+local revB = S.state.revision
+local histN = #readJson(DIR .. "history.json")
+local lastEntry = readJson(DIR .. "history.json")[histN]
+local slotPath = DIR .. "backups/config-" .. (revB % S.BACKUP_SLOTS + 1) .. ".json"
+local slotBefore = FS[slotPath]
+local liveBefore = liveFingerprint()
+freshDistribution()
+S.base = nil
+local resetsB = resets
+fire("OnInitGlobalModData", false)
+check(resets == resetsB + 1 and liveFingerprint() == liveBefore, "重開服後分布表回到原狀，設定照常重套並 Reset")
+check(S.state.revision == revB and readJson(DIR .. "status.json").revision == revB and readJson(DIR .. "state.json").revision == revB, "修訂號不變")
+check(#readJson(DIR .. "history.json") == histN and FS[slotPath] == slotBefore, "不新增變更紀錄，也不覆寫下一個備份槽")
+local stB = readJson(DIR .. "status.json")
+check(stB.ok == true and stB.source == "boot", "狀態仍記下這次開服檢查")
+Cl.request()
+local originSrc, originAt
+if Cl.revisionOrigin then originSrc, originAt = Cl.revisionOrigin() end
+check(Cl.data.revision == revB and originSrc == lastEntry.source and originAt == lastEntry.at,
+    "面板的「修訂 #N｜來自…」描述目前修訂怎麼來的（" .. tostring(originSrc) .. "），不是較晚那次開服檢查")
+
+print("情境十九：伺服器關著時改過設定檔：開服記一筆修訂並列出差異")
+local cfgOff = M.jsonDecode(FS[DIR .. "config.json"])
+cfgOff.zones = cfgOff.zones or {}
+cfgOff.zones.luxuryDealership = cfgOff.zones.luxuryDealership or {}
+cfgOff.zones.luxuryDealership.chanceToSpawnKey = 42
+writeConfig(cfgOff)
+freshDistribution()
+S.base = nil
+fire("OnInitGlobalModData", false)
+local hOff = readJson(DIR .. "history.json")
+local eOff = hOff[#hOff]
+check(S.state.revision == revB + 1 and eOff.revision == revB + 1 and eOff.source == "boot" and #hOff == histN + 1, "開服發現檔案改過就記成新修訂")
+local sawOff = false
+for _, c in ipairs(eOff.changes or {}) do
+    if c.k == "param" and c.z == "luxuryDealership" and c.p == "chanceToSpawnKey" and c.b == 42 then sawOff = true end
+end
+check(sawOff and eOff.changeCount == 1 and VehicleZoneDistribution.luxuryDealership.chanceToSpawnKey == 42, "紀錄只列出關服期間改的那一項，並已生效")
+
 print()
 if failures > 0 then
     print(failures .. " 項失敗")

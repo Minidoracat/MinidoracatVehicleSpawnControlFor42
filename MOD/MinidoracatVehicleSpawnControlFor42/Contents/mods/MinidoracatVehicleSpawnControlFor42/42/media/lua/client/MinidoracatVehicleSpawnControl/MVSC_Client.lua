@@ -118,6 +118,19 @@ function C.onServerCommand(module, command, args)
 end
 Events.OnServerCommand.Add(C.onServerCommand)
 
+-- 目前生效的修訂是怎麼來、何時套用的（回傳 source, at）。開服時設定沒變不會新增修訂，status 記的是較晚那次
+-- 開服檢查，所以先從變更紀錄找這個修訂；找不到（紀錄被截掉）才退回 status
+function C.revisionOrigin()
+    local d = C.data
+    if not d then return nil, nil end
+    local h = d.history or {}
+    for i = #h, 1, -1 do
+        if h[i].revision == d.revision then return h[i].source, h[i].at end
+    end
+    local st = d.status or {}
+    return st.source, st.checkedAt
+end
+
 -- ---------------------------------------------------------------- 草稿
 function C.changes()
     if not (C.data and C.draft) then return {} end

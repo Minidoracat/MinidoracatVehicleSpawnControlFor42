@@ -220,19 +220,30 @@ function S.applyText(text, source, opts)
         S.lastText = S.readText(S.CONFIG) -- 讀回值當輪詢基準（readLine 會吃掉結尾換行）
     end
     local changes = S.changesFrom(source, cfg)
+    -- 開服時和上一筆紀錄內容相同：照常重套（重開服後分布表回到原狀），但不加修訂號、不備份、不寫變更紀錄，
+    -- 否則每次重啟都留一筆「與前一版內容相同」，10 個備份槽幾天內就被同一份設定洗掉（服主 2026-10-03 要求）。
+    -- changes 為 nil（沒有上一筆可比，例如第一次開服）照常記成新修訂
+    local unchanged = source == "boot" and changes ~= nil and #changes == 0
     S.cfg = cfg
     local built = M.build(S.base, cfg, S.info)
     writeLive(built)
-    S.state.revision = S.state.revision + 1
-    writeJson(S.STATE, S.state)
-    local slot = backup(text)
+    if not unchanged then S.state.revision = S.state.revision + 1 end
+    writeJson(S.STATE, S.state) -- 開服時 markSeen 可能新增了首次出現的車，沒變更也要存
+    local slot = nil
+    if not unchanged then slot = backup(text) end
     writeCatalog(built)
     writeStatus(true, source, {}, warnings)
-    addHistory({ revision = S.state.revision, at = getTimestampMs(), source = source, user = opts.user or "", slot = slot,
-        changes = changes and M.head(changes, S.HISTORY_CHANGES) or nil,
-        changeCount = changes and #changes or nil })
+    if not unchanged then
+        addHistory({ revision = S.state.revision, at = getTimestampMs(), source = source, user = opts.user or "", slot = slot,
+            changes = changes and M.head(changes, S.HISTORY_CHANGES) or nil,
+            changeCount = changes and #changes or nil })
+    end
     for _, w in ipairs(warnings) do print(M.LOG .. "config warning: " .. w) end
-    print(M.LOG .. "applied config revision " .. S.state.revision .. " (" .. source .. (opts.user and (", " .. opts.user) or "") .. ")")
+    if unchanged then
+        print(M.LOG .. "config unchanged since revision " .. S.state.revision .. ", re-applied without a new revision (boot)")
+    else
+        print(M.LOG .. "applied config revision " .. S.state.revision .. " (" .. source .. (opts.user and (", " .. opts.user) or "") .. ")")
+    end
     notify(true, source, {})
     return true, {}
 end
