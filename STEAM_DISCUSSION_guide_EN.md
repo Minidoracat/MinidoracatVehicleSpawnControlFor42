@@ -48,6 +48,7 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [*] Left-drag to rotate, right-drag to pan, scroll to zoom, double-click to reset; front, side and top buttons are there too.
 [*] The preview always shows the first paint job and the default color. This is a limit of the game's built-in engine, not of a preview made by this mod: the game's built-in 3D preview only loads each vehicle's first paint job and offers no way to switch it. Spawned vehicles are not affected and still use every paint job. Vehicles with several paint jobs list a texture swatch for each one under the preview; hover a swatch to enlarge it.
 [*] The game's built-in 3D preview only draws the first model of each vehicle part, so some modded vehicles lose their roof or interior there; the panel draws those models in. A few body-colored parts still can't be drawn because of the game's built-in engine, and the preview says so underneath. The preview also shows every optional part (armor, roof racks, spare tires and so on); spawned vehicles are equipped by the vehicle mod's own rules.
+[*] Some mods give vehicles wheel parts without a model (Immersive Snow 0.5.2, for example), and the game's built-in 3D preview errors out on them; the panel detects this, skips the 3D preview for that vehicle and says so underneath. The rest of the panel keeps working and spawned vehicles are not affected.
 [/list]
 
 [h3]Batch edits[/h3]
@@ -128,6 +129,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [*] Some random events spawn a fixed vehicle type (certain crash scenes, for example) without using the zone distribution, so this mod cannot change them.
 [*] Because of a limit in the game's built-in engine, the 3D preview can only show the first paint job and the default color (spawned vehicles are not affected); other paint jobs are shown as texture swatches.
 [*] Because of a limit in the game's built-in engine, a few body-colored parts can't be drawn in the 3D preview, and every optional part is shown (spawned vehicles are not affected).
+[*] When another mod gives a vehicle wheel parts without a model, that vehicle has no 3D preview (spawned vehicles are not affected).
 [*] The config file lives in the user folder, so every singleplayer save and self-hosted server using that folder shares one config.
 [*] With the server option PauseEmpty on, the whole server pauses while no player is online, so config file edits only apply once someone joins; this is how the game itself works.
 [/list]

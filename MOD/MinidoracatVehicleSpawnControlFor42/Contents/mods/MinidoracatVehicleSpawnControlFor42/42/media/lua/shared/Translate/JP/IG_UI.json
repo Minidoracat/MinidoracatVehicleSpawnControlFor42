@@ -106,6 +106,7 @@
     "IGUI_MVSC_PendingHint": "以下の編集はまだ適用されていません。「変更を適用」で反映されます。",
     "IGUI_MVSC_PendingTitle": "未適用の変更 %1 件",
     "IGUI_MVSC_PickVehicle": "左の一覧から車両を選んでください",
+    "IGUI_MVSC_PreviewBlockedNote": "他のMODがモデルのないタイヤ部品を追加しているため、ゲーム本体のエンジンではプレビューできません（実際の出現には影響なし）",
     "IGUI_MVSC_PreviewPartsNote": "ゲーム本体のエンジン制限で、この車両の一部の部品はプレビューに表示できません（実際の出現には影響なし）",
     "IGUI_MVSC_PreviewSkinHover": "ゲーム本体のエンジン制限で、3Dプレビューは既定の塗装と色しか表示できません（実際の出現には影響なし）。見本にカーソルで拡大します。",
     "IGUI_MVSC_PreviewSkinNote": "ゲーム本体のエンジン制限で、プレビューは既定の塗装と色のみ表示（実際の出現には影響なし）",

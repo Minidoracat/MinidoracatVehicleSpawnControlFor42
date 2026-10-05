@@ -72,6 +72,27 @@ local function skinsOf(full)
     return skinCache[full]
 end
 
+-- 有些 MOD 會替車種加上綁了輪子、卻沒有模型的零件（例：Immersive Snow 0.5.2 的 ISnowWheel*）。引擎預覽的 initWheelModel
+-- 直接讀這種零件的模型清單（null）→ 每幀 NPE，被 UIManager 接住後該幀其餘 UI 全部不畫（UI3DScene.java:7375）。
+-- Lua 讀不到零件的 wheel 欄位，改用不加入世界的暫時車以 getWheelIndex 判斷；回傳第一個這種零件的 id。不快取：那類 MOD 之後可能補上模型
+local function brokenWheelPart(full)
+    local found
+    local ok, err = pcall(function()
+        local bv = BaseVehicle.new(getCell())
+        bv:setScript(full)
+        for i = 0, bv:getPartCount() - 1 do
+            local part = bv:getPartByIndex(i)
+            local sp = part:getScriptPart()
+            if part:getWheelIndex() >= 0 and sp and sp:getModelCount() == 0 then
+                found = part:getId()
+                return
+            end
+        end
+    end)
+    if not ok then print(M.LOG .. "preview check failed for " .. tostring(full) .. ": " .. tostring(err)) end
+    return found
+end
+
 -- 零件補畫：UI3DScene 每個零件只取第一個模型、有幾個模型就把它畫幾次（initPartModel 用 getModelInfoForPart(partId)，
 -- UI3DScene.java:7439），其餘模型看不到（例：'87 Ford B700 巴士的車頂是 GloveBox 第 3 個模型）。
 -- 能補的另建場景模型；場景模型只綁 "Texture"、只有靜態模型套變換（:3237-3285），所以只補「有自己貼圖、非 vehicle shader 的靜態模型」。
@@ -80,7 +101,7 @@ end
 -- 回傳 擺放清單, 補不了的模型數
 local function partExtras(full)
     local sm = getScriptManager()
-    local s = sm:getVehicle(full)
+    local s = full and sm:getVehicle(full)
     local out, missing = {}, 0
     if not (s and s:getModel()) then return out, missing end
     local sv, mo = s:getModelScale(), s:getModel():getOffset()
@@ -352,16 +373,21 @@ end
 
 function Tab:focus(full)
     self.selectedFull = full
+    self.blockedPart = brokenWheelPart(full)
     local j = self.scene.javaObject
-    j:fromLua2("setVehicleScript", "v", full)
-    j:fromLua2("setObjectVisible", "v", true)
-    self:placeExtras(full)
+    if self.blockedPart then
+        print(M.LOG .. "preview skipped for " .. full .. ": part " .. self.blockedPart .. " has a wheel but no model")
+    else
+        j:fromLua2("setVehicleScript", "v", full)
+    end
+    j:fromLua2("setObjectVisible", "v", not self.blockedPart)
+    self:placeExtras(not self.blockedPart and full or nil)
     -- 初始化當下模型若還沒載入，場景會一直空白直到再次 setVehicleScript（UI3DScene.java:6101-6105）
-    self.resetAt = 30
+    self.resetAt = not self.blockedPart and 30 or nil
     self.swatches, self.peek = nil, nil
 end
 
--- 換車時重建補畫的場景模型（見 partExtras）；補不了的零件在預覽說明註明
+-- 換車時重建補畫的場景模型（見 partExtras；full 為 nil 時只清掉）；補不了的零件在預覽說明註明
 function Tab:placeExtras(full)
     local j = self.scene.javaObject
     for _, id in ipairs(self.extras) do j:fromLua1("removeModel", id) end
@@ -784,7 +810,7 @@ function Tab:render()
     if not C.isEnabled(full) then bx = bx + W.badge(self, T("StatusDisabled"), bx, y, "textMuted", "lock") + 6 end
     if v.new then W.badge(self, T("BadgeNew"), bx, y, "textMuted", "tag") end
     y = y + 28
-    local notes = { #names > 1 and T("PreviewSkinHover") or T("PreviewSkinNote") }
+    local notes = { self.blockedPart and T("PreviewBlockedNote") or (#names > 1 and T("PreviewSkinHover") or T("PreviewSkinNote")) }
     if self.partsMissing then notes[2] = T("PreviewPartsNote") end
     for _, note in ipairs(notes) do
         for i, line in ipairs(U.wrap(note, mw - IN * 2)) do
