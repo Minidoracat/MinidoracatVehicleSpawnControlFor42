@@ -51,6 +51,6 @@ jobs:
 
           要確認新版還會不會替車種加上「綁輪子、沒有模型」的 ISnowWheel 零件：訂閱新版後開面板選一台一般車（例如 Base.CarLuxury），看得到 3D 預覽、預覽說明沒有「其他MOD…輪胎零件」那行、console.txt 也沒有 \`preview skipped for\`，就是修好了。
 
-          修好之後：回覆 Workshop 留言的玩家、收掉知識庫裡這條待裁定，不再追蹤就刪掉 \`.github/workflows/watch-immersive-snow.yml\`。
+          修好之後：回覆 Workshop 留言的玩家、刪掉知識庫 open-issues.md「待查」裡的這一條，不再追蹤就刪掉 \`.github/workflows/watch-immersive-snow.yml\`。
           EOF
           )"
