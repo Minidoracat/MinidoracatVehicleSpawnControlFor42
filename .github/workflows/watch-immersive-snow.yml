@@ -1,0 +1,56 @@
+# 每天查一次 Immersive Snow（Workshop 3810071828）有沒有更新，有就開 issue。
+# 它 0.5.2 替車種加的「綁輪子、沒有模型」零件會讓遊戲內建的 3D 預覽拋錯（本 MOD 已擋下並在預覽說明註明），
+# 作者更新後要確認修好了沒。BASELINE 是實測過的 0.5.2 的 time_updated；issue 標題帶 time_updated，同一次更新只開一張。
+# 不再需要追蹤時刪掉本檔。
+name: Watch Immersive Snow
+
+on:
+  schedule:
+    - cron: '17 1 * * *' # 每天 UTC 01:17（台北 09:17）
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      ITEM: '3810071828'
+      BASELINE: '1791111230' # 0.5.2，2026-10-04 10:53 UTC
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: 比對 Workshop 更新時間
+        run: |
+          set -euo pipefail
+          item=$(curl -fsS --retry 3 --retry-all-errors \
+            https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/ \
+            -d itemcount=1 -d "publishedfileids[0]=$ITEM" | jq -c '.response.publishedfiledetails[0]')
+          if [ "$(jq -r .result <<<"$item")" != 1 ]; then
+            echo "::error::Steam API 沒有回這個物品：$item"
+            exit 1
+          fi
+          updated=$(jq -r .time_updated <<<"$item")
+          when=$(date -u -d "@$updated" '+%Y-%m-%d %H:%M UTC')
+          echo "Workshop 更新時間 $when（$updated），基準 $BASELINE"
+          if [ "$updated" -le "$BASELINE" ]; then
+            echo "沒有新版"
+            exit 0
+          fi
+          if [ -n "$(gh issue list --state all --search "$updated in:title" --json number --jq '.[].number')" ]; then
+            echo "這次更新已經開過 issue"
+            exit 0
+          fi
+          gh issue create --title "Immersive Snow 有更新：$when [$updated]" --body "$(cat <<EOF
+          Immersive Snow（Workshop $ITEM）在 $when 更新了，比實測過的 0.5.2 新。
+
+          - Workshop：https://steamcommunity.com/sharedfiles/filedetails/?id=$ITEM
+          - 更新說明：https://steamcommunity.com/sharedfiles/filedetails/changelog/$ITEM
+          - 我們的回報：https://steamcommunity.com/workshop/filedetails/discussion/3810071828/586187435308887082/#c586187800873929712
+
+          要確認新版還會不會替車種加上「綁輪子、沒有模型」的 ISnowWheel 零件：訂閱新版後開面板選一台一般車（例如 Base.CarLuxury），看得到 3D 預覽、預覽說明沒有「其他MOD…輪胎零件」那行、console.txt 也沒有 \`preview skipped for\`，就是修好了。
+
+          修好之後：回覆 Workshop 留言的玩家、收掉知識庫裡這條待裁定，不再追蹤就刪掉 \`.github/workflows/watch-immersive-snow.yml\`。
+          EOF
+          )"
