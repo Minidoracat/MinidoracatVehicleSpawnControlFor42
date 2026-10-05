@@ -72,6 +72,40 @@ local function skinsOf(full)
     return skinCache[full]
 end
 
+-- 零件補畫：UI3DScene 每個零件只取第一個模型、有幾個模型就把它畫幾次（initPartModel 用 getModelInfoForPart(partId)，
+-- UI3DScene.java:7439），其餘模型看不到（例：'87 Ford B700 巴士的車頂是 GloveBox 第 3 個模型）。
+-- 能補的另建場景模型；場景模型只綁 "Texture"、只有靜態模型套變換（:3237-3285），所以只補「有自己貼圖、非 vehicle shader 的靜態模型」。
+-- 輪胎零件（引擎走 initWheelModel）與掛在父零件骨架上的模型（initChildPartModel）也補不了。
+-- 位置照引擎的零件模型變換：T(車身 offset + 車身 scale × 零件 offset)·R(零件 rotate)·S(車身 scale × 零件 scale)（:7305-7310,7478-7507）。
+-- 回傳 擺放清單, 補不了的模型數
+local function partExtras(full)
+    local sm = getScriptManager()
+    local s = sm:getVehicle(full)
+    local out, missing = {}, 0
+    if not (s and s:getModel()) then return out, missing end
+    local sv, mo = s:getModelScale(), s:getModel():getOffset()
+    for i = 0, s:getPartCount() - 1 do
+        local part = s:getPart(i)
+        local tire = string.find(part:getId(), "^Tire") ~= nil
+        for k = 1, part:getModelCount() - 1 do
+            local m = part:getModel(k)
+            local ms = m:getFile() and sm:getModelScript(m:getFile())
+            if ms then -- 沒有檔名的模型由裝上的物品決定（如引擎蓋飾品），引擎預覽本來就不畫
+                local sh = string.lower(ms:getShaderName())
+                local vehicleShader = string.find(sh, "vehicle", 1, true) and not string.find(sh, "wheel", 1, true)
+                if tire or vehicleShader or not ms:isStatic() or not ms:getTextureName(true) or m:getAttachmentNameParent() then
+                    missing = missing + 1
+                else
+                    local o, r, ks = m:getOffset(), m:getRotate(), sv * m:getScale()
+                    out[#out + 1] = { file = m:getFile(), ks = ks, rot = { r:x(), r:y(), r:z() },
+                        pos = { mo:x() + sv * o:x(), mo:y() + sv * o:y(), mo:z() + sv * o:z() } }
+                end
+            end
+        end
+    end
+    return out, missing
+end
+
 -- 倍率在預設刻度間跳；手動輸入的非刻度值往相鄰刻度靠
 local function stepMult(v, dir)
     v = v or 1
@@ -112,6 +146,7 @@ function Tab:new(x, y, w, h)
     o.zoneRows = {}
     o.sel = W.selection()
     o.viewX, o.viewY = 0, 0
+    o.extras = {} -- 補畫的場景模型 id
     return o
 end
 
@@ -320,9 +355,31 @@ function Tab:focus(full)
     local j = self.scene.javaObject
     j:fromLua2("setVehicleScript", "v", full)
     j:fromLua2("setObjectVisible", "v", true)
+    self:placeExtras(full)
     -- 初始化當下模型若還沒載入，場景會一直空白直到再次 setVehicleScript（UI3DScene.java:6101-6105）
     self.resetAt = 30
     self.swatches, self.peek = nil, nil
+end
+
+-- 換車時重建補畫的場景模型（見 partExtras）；補不了的零件在預覽說明註明
+function Tab:placeExtras(full)
+    local j = self.scene.javaObject
+    for _, id in ipairs(self.extras) do j:fromLua1("removeModel", id) end
+    self.extras = {}
+    local list, missing = partExtras(full)
+    for i, e in ipairs(list) do
+        local id = "x" .. i
+        if pcall(function() j:fromLua2("createModel", id, e.file) end) then
+            self.extras[#self.extras + 1] = id
+            j:fromLua1("getObjectTranslation", id):set(e.pos[1], e.pos[2], e.pos[3])
+            j:fromLua1("getObjectRotation", id):set(e.rot[1], e.rot[2], e.rot[3])
+            -- 引擎畫零件模型時 X 軸鏡像（UI3DScene.java:7487）。ponytail: 假設模型沒設 invertX（Lua 讀不到這個欄位；原版沒有模型設它），設了的會左右相反
+            j:fromLua1("getObjectScale", id):set(-e.ks, e.ks, e.ks)
+        else
+            missing = missing + 1
+        end
+    end
+    self.partsMissing = missing > 0
 end
 
 function Tab:afterSelect()
@@ -727,11 +784,14 @@ function Tab:render()
     if not C.isEnabled(full) then bx = bx + W.badge(self, T("StatusDisabled"), bx, y, "textMuted", "lock") + 6 end
     if v.new then W.badge(self, T("BadgeNew"), bx, y, "textMuted", "tag") end
     y = y + 28
-    local note = #names > 1 and T("PreviewSkinHover") or T("PreviewSkinNote")
-    for i, line in ipairs(U.wrap(note, mw - IN * 2)) do
-        if i > 2 then break end
-        U.text(self, line, x, y, "textFaint")
-        y = y + FH + 2
+    local notes = { #names > 1 and T("PreviewSkinHover") or T("PreviewSkinNote") }
+    if self.partsMissing then notes[2] = T("PreviewPartsNote") end
+    for _, note in ipairs(notes) do
+        for i, line in ipairs(U.wrap(note, mw - IN * 2)) do
+            if i > 2 then break end
+            U.text(self, line, x, y, "textFaint")
+            y = y + FH + 2
+        end
     end
     if #names > 1 then self:drawSwatches(names, x, y + 6, mw - IN * 2, self.height - IN - y - 6) end
 
