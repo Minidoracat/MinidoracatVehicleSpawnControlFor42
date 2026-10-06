@@ -90,6 +90,38 @@ function S.collectScripts()
     return out
 end
 
+-- 世界上不留 3D 預覽的代理車種。代理只會因為頂替（載入的車記著已不存在的車種，多半是拿掉車輛 MOD 後的舊車，
+-- chooseRandomScript 從全部車種隨機挑，BaseVehicle.java:1584-1608）或管理員生車進到世界；客戶端用自己記憶體裡同名的
+-- 車種畫世界上的車，預覽改過的那一號會讓那位管理員看到幻影車（2026-10-06 E2E proxy-overlap）。
+-- 每台車加入世界都會觸發 OnSpawnVehicleStart（生成與從存檔載入：IsoChunk.java:3773、VehiclesDB2.java:519,582
+-- → BaseVehicle.addToWorld :7964 → createPhysics :811），建物理之前照原版的分法重挑：零輪的換成燒毀車，有輪的
+-- （單人預覽過的代理）換成一般車。
+local pools
+function S.replacePreviewVehicle(vehicle)
+    local script = vehicle:getScript()
+    if not (script and M.isPreviewScript(script:getFullName())) then return end
+    if not pools then
+        pools = { [true] = {}, [false] = {} }
+        local list = ScriptManager.instance:getAllVehicleScripts()
+        for i = 0, list:size() - 1 do
+            local s = list:get(i)
+            if not M.isPreviewScript(s:getFullName()) then
+                local pool = pools[s:getWheelCount() > 0]
+                pool[#pool + 1] = s:getFullName()
+            end
+        end
+    end
+    local pool = pools[script:getWheelCount() > 0]
+    if #pool == 0 then return end
+    local old, new = script:getFullName(), pool[ZombRand(#pool) + 1]
+    vehicle:setScript(new)
+    -- 塗裝序號沿用舊的；超出新車種的塗裝數會在畫車時出錯（VehicleScript.getSkin 不檢查範圍）
+    local skins = vehicle:getSkinCount()
+    if skins > 0 and (vehicle:getSkinIndex() < 0 or vehicle:getSkinIndex() >= skins) then vehicle:setSkinIndex(ZombRand(skins)) end
+    print(M.LOG .. "replaced preview vehicle type " .. old .. " with " .. new .. " at "
+        .. math.floor(vehicle:getX()) .. "," .. math.floor(vehicle:getY()))
+end
+
 -- ---------------------------------------------------------------- 狀態
 local function loadState()
     local text = S.readText(S.STATE)
@@ -313,3 +345,4 @@ end
 -- OnInitGlobalModData 在專用伺服器與單人都會觸發，且早於第一次生車（E2E spike-mp）
 Events.OnInitGlobalModData.Add(S.init)
 Events.OnTick.Add(onTick)
+Events.OnSpawnVehicleStart.Add(S.replacePreviewVehicle)

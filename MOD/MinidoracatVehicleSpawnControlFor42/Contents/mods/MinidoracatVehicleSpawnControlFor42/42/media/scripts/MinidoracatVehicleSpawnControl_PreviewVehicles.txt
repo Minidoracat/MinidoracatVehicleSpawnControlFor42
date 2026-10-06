@@ -3,9 +3,11 @@
 
     The panel loads a vehicle's model, a chosen paint job and its parts into one of these
     while previewing (client only, reset when the game is re-entered). No spawn zone lists them.
-    Each is defined as a burnt car shell (model and collision of the vanilla CarNormalBurnt,
-    no paint job, no wheels): if the game ever picks one to replace a vehicle whose type was
-    removed, it shows up as a burnt wreck instead of an invisible vehicle.
+    If the game ever puts one into the world (it replaces vehicles whose type was removed with a
+    random type, and admins can spawn any type), the server swaps it for a regular vehicle type as
+    it is added to the world (MVSC_Server.lua, S.replacePreviewVehicle). Each is still defined as a
+    burnt car shell (model and collision of the vanilla CarNormalBurnt, no paint job, no wheels) so
+    that it stays harmless even without that swap.
 */
 module MVSCPreview
 {
@@ -542,6 +544,550 @@ module MVSCPreview
     }
 
     vehicle PreviewBurnt32
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt33
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt34
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt35
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt36
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt37
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt38
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt39
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt40
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt41
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt42
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt43
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt44
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt45
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt46
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt47
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt48
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt49
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt50
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt51
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt52
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt53
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt54
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt55
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt56
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt57
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt58
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt59
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt60
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt61
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt62
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt63
+    {
+        neverSpawnKey = true,
+        model
+        {
+            file = Vehicles_CarNormal_Burnt,
+            scale = 1.82,
+            offset = 0.0 0.3297 0.0,
+        }
+        extents = 0.8022 0.6593 2.6044,
+        mass = 500,
+        centerOfMassOffset = 0.0 0.3242 0.0,
+        shadowExtents = 0.8956 3.2143,
+        shadowOffset = 0.0 0.0,
+        physicsChassisShape = 0.8022 0.6593 2.6044,
+    }
+
+    vehicle PreviewBurnt64
     {
         neverSpawnKey = true,
         model

@@ -66,7 +66,7 @@ end
 
 -- 假車輛 script：來源由 getLoadedScriptBodies（modId、body 交錯）決定
 local SCRIPTS = {}
-local function addScript(full, modId, model, skins, overrider)
+local function addScript(full, modId, model, skins, overrider, wheels)
     local bodies = { modId, "body" }
     if overrider then bodies[3] = overrider; bodies[4] = "body2" end
     SCRIPTS[#SCRIPTS + 1] = {
@@ -74,6 +74,7 @@ local function addScript(full, modId, model, skins, overrider)
         getName = function() return string.match(full, "%.(.+)$") end,
         getCarModelName = function() return model end,
         getSkinCount = function() return skins end,
+        getWheelCount = function() return wheels or 4 end,
         getLoadedScriptBodies = function() return javaList(bodies) end,
     }
 end
@@ -82,8 +83,11 @@ addScript("Base.SmallCar", "pz-vanilla", "SmallCar", 2, "SomeRetexture")
 addScript("Base.VanAmbulance", "pz-vanilla", nil, 1)
 addScript("MilPack.M35", "MilPack", nil, 1)
 addScript("Base.PickUpTruck", "pz-vanilla", nil, 1)
--- 3D 預覽的代理車種也是已註冊的車種（MOD 腳本 MinidoracatVehicleSpawnControl_PreviewVehicles.txt），目錄不得列出
-addScript("MVSCPreview.PreviewBurnt01", "MinidoracatVehicleSpawnControlFor42", nil, 0)
+addScript("Base.CarNormalBurnt", "pz-vanilla", nil, 1, nil, 0)
+-- 3D 預覽的代理車種也是已註冊的車種（MOD 腳本 MinidoracatVehicleSpawnControl_PreviewVehicles.txt），目錄不得列出。
+-- 01 是開機時的燒毀車外殼（零輪）；02 模擬單人預覽過、被載入成一般車的代理（有輪）
+addScript("MVSCPreview.PreviewBurnt01", "MinidoracatVehicleSpawnControlFor42", nil, 0, nil, 0)
+addScript("MVSCPreview.PreviewBurnt02", "MinidoracatVehicleSpawnControlFor42", nil, 1, nil, 4)
 -- getVehicle 也接受不帶模組的短名（MOD 常這樣寫進區域表，E2E core-mp 實見 "SemiTruck"）
 local function getVehicle(_, name)
     for _, sc in ipairs(SCRIPTS) do
@@ -564,6 +568,31 @@ name, state = PV.resolve("Mod.Van2", 0, "Vehicles/van2")
 check(name == "Mod.Van2" and state == "exhausted", "用完時第 0 款照原車種顯示並標示額度用完")
 check(PV.resolve("Mod.Van", 0, "Vehicles/van_a") == "MVSCPreview.PreviewBurnt02" and PV.resolve("Base.Plain", 0, "Vehicles/plain_a") == "Base.Plain",
     "用完後看過的組合與不需要代理的車照常")
+
+print("情境二十一：世界上的代理車種一加入世界就換成一般車種")
+-- 一律挑候選的最後一個：代理排在 SCRIPTS 最後，候選沒排除代理就會挑到它
+function ZombRand(n) return n - 1 end
+local function worldVehicle(full, skin)
+    local v = { script = getVehicle(nil, full), skin = skin or -1, sets = 0 }
+    v.getScript = function() return v.script end
+    v.setScript = function(_, name) v.script = getVehicle(nil, name); v.sets = v.sets + 1 end
+    v.getSkinCount = function() return v.script.getSkinCount() end
+    v.getSkinIndex = function() return v.skin end
+    v.setSkinIndex = function(_, i) v.skin = i end
+    v.getX = function() return 10758.5 end
+    v.getY = function() return 9772.5 end
+    return v
+end
+local shell = worldVehicle("MVSCPreview.PreviewBurnt01", 7)
+fire("OnSpawnVehicleStart", shell)
+check(shell.script.getFullName() == "Base.CarNormalBurnt", "零輪的代理（拿掉車輛 MOD 後被頂替的殘骸、管理員生的）換成燒毀車")
+check(shell.skin == 0, "沿用的塗裝序號超出新車種的塗裝數時重挑")
+local used = worldVehicle("MVSCPreview.PreviewBurnt02")
+fire("OnSpawnVehicleStart", used)
+check(used.script.getWheelCount() > 0 and not M.isPreviewScript(used.script.getFullName()), "有輪的代理（單人預覽過的）換成一般車")
+local normal = worldVehicle("Base.CarNormal", 2)
+fire("OnSpawnVehicleStart", normal)
+check(normal.sets == 0 and normal.skin == 2, "一般車種不動")
 
 print()
 if failures > 0 then
