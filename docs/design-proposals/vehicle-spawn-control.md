@@ -16,10 +16,10 @@
 | 原版／MOD 分類 | 可行 | `BaseScriptObject.getLoadedScriptBodies()` 交錯記錄 modId／body（`BaseScriptObject.java:137-144`、`ScriptBucket.java:98-132`），原版為 `pz-vanilla`（`ScriptManager.java:652`）；`getModInfoByID` 取 MOD 名（`LuaManager.java:5363-5367`） | 以來源 modId 分類，**不看 module 名**（MOD 常用 `module Base`） |
 | JSON 改檔自動同步 | 可行（輪詢） | Lua 只能讀寫 `<cacheDir>/Lua/`，沒有 mtime API（`LuaManager.java:5932-5958,6019-6030`） | 每分鐘讀檔比對內容，變了才解析驗證 |
 | 改完立即影響遊戲 | **可行（2026-09-26 實機驗證）** | Java 在第一次生車時把 Lua 表複製成快取（`VehicleType.java:38-126`、`IsoChunk.java:1730-1734`）；`VehicleType.Reset()` 可清快取且類別有對 Lua 公開（`VehicleType.java:231-234`、`LuaManager.java:2445`）；伺服器生車與 Lua 同在主迴圈（`GameServer.java:972`） | 改表後呼叫 `Reset()`，之後新生成的區塊立即採用新比例 |
-| 3D 外觀預覽 | 可行（預設塗裝；2026-09-26 非 debug MP 客戶端實機驗證） | `UI3DScene` 的 `createVehicle`／`setVehicleScript`（`UI3DScene.java:590-598,1424-1427`），非 debug 限定 | 單一場景，只在選車時渲染 |
-| 切換塗裝預覽 | **原版 API 做不到** | 場景初始化只取 `getSkin(0)` 並快取（`UI3DScene.java:6101-6111`）；`VehicleScript.skins` 為 private、無修改 API（`VehicleScript.java:102-104`） | 列出塗裝清單並可指定「生成塗裝」；3D 固定顯示第一款 |
+| 3D 外觀預覽 | 可行（2026-09-26 非 debug MP 客戶端實機驗證） | `UI3DScene` 的 `createVehicle`／`setVehicleScript`（`UI3DScene.java:590-598,1424-1427`），非 debug 限定 | 單一場景，只在選車時渲染 |
+| 切換塗裝預覽 | **可行（預覽代理車種；2026-10-06 42.21.0 SP 實機驗證）** | 場景只畫 `getSkin(0)`（`UI3DScene.java:6115-6117`）；`VehicleScript.skins` 只能附加、無刪改 API（`VehicleScript.java:341-345`），也沒有刪除車種的 API；腳本在進遊戲時重載（`IngameState.java:980,1048`、`Core.java:3882,3931`）；缺車種的車由 `BaseVehicle.chooseRandomScript` 換成隨機車種（`BaseVehicle.java:1584-1608`） | MOD 內附 32 個預覽專用車種 `MVSCPreview.PreviewBurnt01`–`32`（原版燒毀轎車車殼：模型＋碰撞、無塗裝、無輪子，不在任何區域／`catalog.json`／設定檔）；點色票時客戶端用 `VehicleScript:Load` 把選到的車模型與塗裝載入其中一個（塗裝成為第一款），再 `copyPartsFrom`／`copyWheelsFrom`，只存在客戶端記憶體。每次進遊戲 32 組「車＋塗裝」額度，用完以平面貼圖代替並註明；回主選單／重連時腳本重載而重置。伺服器移除車輛 MOD 後若抽到代理車種，只會是無貼圖的燒毀車殼 |
 | 切換顏色預覽 | **原版 API 做不到** | 預覽車漆色寫死（`UI3DScene.java:7040-7050`）；真車顏色是生成時隨機 HSV（`BaseVehicle.java:732-775`） | 顯示「隨機車色」或 script 的固定色 |
-| 零件預覽 | **部分可行（2026-10-05 SP 實機驗證）** | 場景每個零件只畫第一個模型（`UI3DScene.java:7439`），所有零件模型不管有沒有裝都畫（`:6124-6149`）；場景模型只綁 `Texture`、只有靜態模型套變換（`:3237-3285`），也沒有隱藏零件模型的命令 | 零件其餘模型中「有自己貼圖、非 vehicle shader 的靜態模型」另建場景模型補上；用車身塗裝的零件補不了，預覽說明註明；選配零件照引擎全部畫出 |
+| 零件預覽 | **可行（預覽代理車種；2026-10-06 42.21.0 SP 實機驗證）** | 場景每個零件只畫第一個模型（`UI3DScene.java:7439`），所有零件模型不管有沒有裝都畫（`:6124-6149`），也沒有隱藏零件模型的命令 | 代理車種複製零件後再 `Load` 一段零件補丁：零件的每個額外模型拆成自己的零件（成為第一個模型），由場景照常畫出，位置與車身塗裝正確。0.1.3 面板另建場景模型補畫的做法已移除（KI5 部分子網格位置／比例錯誤，車頭外與輪拱多出深色板塊）；選配零件照引擎全部畫出 |
 
 ## 3. 設計必須遵守的限制
 
@@ -149,14 +149,14 @@
 建議（明顯加分）：
 
 7. **區域數量參數**：每格生成機率、燒毀車、特殊車、車況、鑰匙機率；並唯讀顯示沙盒的 `CarSpawnRate`，說明它與區域參數的關係（`IsoChunk.java:967-986`）。
-8. **指定生成塗裝**：區域表本來就能指定塗裝（`index`，`-1` 為隨機），可取代做不到的 3D 塗裝切換。
+8. **指定生成塗裝**：區域表本來就能指定塗裝（`index`，`-1` 為隨機）；面板 3D 預覽可點色票切換塗裝（第 2 節）。
 9. **故事分布分類**：`trades`、`delivery` 等表可以調，放在「進階」分組並註明只影響使用這些表的故事事件。
 10. **權限**：沿用原版角色權限，見第 5.2 節。
 
 暫不做（目前證據不支持或屬其他 MOD）：
 
-- 3D 塗裝／顏色切換：需要 Java 層改動，Workshop MOD 做不到。
-- 3D 預覽隱藏選配零件、補畫用車身塗裝的零件：場景沒有隱藏零件模型的命令，場景模型也不設 vehicle shader 的貼圖，需要 Java 層改動。
+- 3D 顏色切換：預覽車漆色寫死，需要 Java 層改動，Workshop MOD 做不到。
+- 3D 預覽隱藏選配零件：場景沒有隱藏零件模型的命令，需要 Java 層改動。
 - 重配已生成的車：屬 VehicleManager 的範圍。
 - 控制直接指定車型的故事事件：原版沒有入口。
 

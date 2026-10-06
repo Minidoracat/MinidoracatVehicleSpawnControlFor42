@@ -82,6 +82,8 @@ addScript("Base.SmallCar", "pz-vanilla", "SmallCar", 2, "SomeRetexture")
 addScript("Base.VanAmbulance", "pz-vanilla", nil, 1)
 addScript("MilPack.M35", "MilPack", nil, 1)
 addScript("Base.PickUpTruck", "pz-vanilla", nil, 1)
+-- 3D 預覽的代理車種也是已註冊的車種（MOD 腳本 MinidoracatVehicleSpawnControl_PreviewVehicles.txt），目錄不得列出
+addScript("MVSCPreview.PreviewBurnt01", "MinidoracatVehicleSpawnControlFor42", nil, 0)
 -- getVehicle 也接受不帶模組的短名（MOD 常這樣寫進區域表，E2E core-mp 實見 "SemiTruck"）
 local function getVehicle(_, name)
     for _, sc in ipairs(SCRIPTS) do
@@ -196,6 +198,7 @@ check(cat.vehicles["Base.SmallCar"].source == "pz-vanilla" and cat.vehicles["Bas
 check(cat.vehicles["Base.CarNormal"].name == "Chevalier Nyala" and cat.vehicles["Base.VanAmbulance"].name == "Base.VanAmbulance", "顯示名稱走 IGUI_VehicleName，缺翻譯退回 script 名")
 check(cat.zones.business and cat.zones.business.aliases[1] == "business2" and cat.zones.business2 == nil, "別名區域只列一次並記在 aliases")
 check(math.abs(cat.zones.parkingstall.vehicles["Base.CarNormal"].percent - 54.1) < 0.01, "目錄顯示正規化後的占比")
+check(cat.vehicles["MVSCPreview.PreviewBurnt01"] == nil, "3D 預覽的代理車種不進車輛目錄")
 local st = readJson(DIR .. "status.json")
 check(st.ok == true and st.revision == 1 and #st.newVehicles == 0, "首次安裝時現有車輛都不算新偵測")
 advance(61000)
@@ -468,6 +471,99 @@ for _, c in ipairs(eOff.changes or {}) do
     if c.k == "param" and c.z == "luxuryDealership" and c.p == "chanceToSpawnKey" and c.b == 42 then sawOff = true end
 end
 check(sawOff and eOff.changeCount == 1 and VehicleZoneDistribution.luxuryDealership.chanceToSpawnKey == 42, "紀錄只列出關服期間改的那一項，並已生效")
+
+print("情境二十：3D 預覽的代理車種（換塗裝、拆零件、額度、只用全新外殼）")
+-- 假引擎：客戶端用 getScriptManager()；原車種、樣板與代理各自假一份（Kahlua 方法呼叫都帶 self）
+local function vec(x, y, z) return { x = function() return x end, y = function() return y end, z = function() return z end } end
+local function fmodel(id, file)
+    return { getId = function() return id end, getFile = function() return file end, getScale = function() return 1 end,
+        getOffset = function() return vec(0, 0.5, 0) end, getRotate = function() return vec(0, 0, 0) end,
+        getAttachmentNameParent = function() return nil end, getAttachmentNameSelf = function() return nil end }
+end
+local function fpart(id, models)
+    return { getId = function() return id end, getModelCount = function() return #models end, getModel = function(_, k) return models[k + 1] end }
+end
+local function fvehicle(full, skins, parts, bodies)
+    return { getFullName = function() return full end, getSkinCount = function() return skins end,
+        getModel = function() return fmodel(nil, full .. "Body") end,
+        getPartCount = function() return #parts end, getPart = function(_, i) return parts[i + 1] end,
+        getWheel = function(_, i) return { getId = function() return "Wheel" .. i end } end,
+        getLoadedScriptBodies = function() return javaList(bodies) end }
+end
+local PV_VEHICLES = {
+    -- 遮罩寫在 template! 樣板裡（原版有 117 台車這樣寫）
+    ["Base.Plain"] = fvehicle("Base.Plain", 2, { fpart("DoorFrontLeft", { fmodel("door", "PlainDoor") }) },
+        { "pz-vanilla", "vehicle Plain { template! = PlainT, skin { texture = Vehicles/plain_b, } }" }),
+    -- GloveBox 三個模型（車頂內裝、車頂、燈條）要拆；保險桿兩個模型是「多選一」款式（可裝物品兩種）不拆
+    ["Mod.Van"] = fvehicle("Mod.Van", 2, {
+        fpart("GloveBox", { fmodel("int", "VanInterior"), fmodel("roof", "VanRoof"), fmodel("bar", "VanLightbar") }),
+        fpart("Bumper", { fmodel("bumper0", "VanBumper0"), fmodel("bumperA", "VanBumperA") }) },
+        { "VanMod", "vehicle Van { skin { texture = Vehicles/van_a, } skin { texture = Vehicles/van_b, textureMask = Vehicles/van_b_mask, } textureMask = Vehicles/van_mask, }" }),
+    ["Mod.Van2"] = fvehicle("Mod.Van2", 1, { fpart("GloveBox", { fmodel("int", "VanInterior"), fmodel("roof", "VanRoof") }) },
+        { "VanMod", "vehicle Van2 { skin { texture = Vehicles/van2, } }" }),
+}
+local ITEMS = { Bumper = { "Base.VanBumper0", "Base.VanBumperA" }, GloveBox = { "Base.GloveBox" } }
+local PROXIES = {}
+for i = 1, 3 do
+    local px = { loads = {}, skins = 0, parts = 0, bullet = 0, textures = 0 }
+    px.getSkinCount = function() return px.skins end
+    px.getPartCount = function() return px.parts end
+    px.Load = function(_, _, text)
+        px.loads[#px.loads + 1] = text
+        for _ in string.gmatch(text, "skin%s*{") do px.skins = px.skins + 1 end
+    end
+    px.copyPartsFrom = function(_, src) px.parts = px.parts + src:getPartCount() end
+    px.copyWheelsFrom = function() end
+    px.toBullet = function() px.bullet = px.bullet + 1 end
+    PROXIES[string.format("MVSCPreview.PreviewBurnt%02d", i)] = px
+end
+local PV_TEMPLATES = { PlainT = { getLoadedScriptBodies = function()
+    return javaList({ "pz-vanilla", "template vehicle PlainT { skin { texture = Vehicles/plain_a, } textureMask = Vehicles/plain_mask, }" })
+end } }
+function getScriptManager()
+    return { getVehicle = function(_, name) return PV_VEHICLES[name] or PROXIES[name] end,
+        getVehicleTemplate = function(_, name) return PV_TEMPLATES[name] end }
+end
+function getCell() return {} end
+BaseVehicle = {
+    new = function()
+        local bv = {}
+        bv.setScript = function() end
+        bv.getPartById = function(_, id)
+            return { getItemType = function() return ITEMS[id] and javaList(ITEMS[id]) end,
+                getWheelIndex = function() return -1 end, getParent = function() return nil end }
+        end
+        return bv
+    end,
+    LoadVehicleTextures = function(px) px.textures = px.textures + 1 end,
+}
+require "MinidoracatVehicleSpawnControl/MVSC_Preview"
+local PV = M.Preview
+local p1, p2, p3 = PROXIES["MVSCPreview.PreviewBurnt01"], PROXIES["MVSCPreview.PreviewBurnt02"], PROXIES["MVSCPreview.PreviewBurnt03"]
+local name, state = PV.resolve("Base.Plain", 0, "Vehicles/plain_a")
+check(name == "Base.Plain" and state == "engine" and PV.remaining() == 3, "預設塗裝、沒有要拆的零件：直接預覽原車種，不用代理")
+name, state = PV.resolve("Base.Plain", 1, "Vehicles/plain_b")
+local head = p1.loads[1] or ""
+check(name == "MVSCPreview.PreviewBurnt01" and state == "proxy" and string.find(head, "texture = Vehicles/plain_b,", 1, true) ~= nil,
+    "第 1 款塗裝載入代理")
+check(string.find(head, "textureMask = Vehicles/plain_mask,", 1, true) ~= nil, "遮罩寫在 template! 樣板裡也找得到")
+check(p1.parts == 1 and p1.bullet == 1 and p1.textures == 1, "代理複製零件，並更新物理與世界用的貼圖")
+local loadsBefore = #p1.loads
+check(PV.resolve("Base.Plain", 1, "Vehicles/plain_b") == name and #p1.loads == loadsBefore and PV.remaining() == 2, "看過的組合沿用同一個代理")
+name, state = PV.resolve("Mod.Van", 0, "Vehicles/van_a")
+local patch = p2.loads[2] or ""
+check(name == "MVSCPreview.PreviewBurnt02" and state == "proxy", "有多模型零件的車，預設塗裝也用代理")
+check(string.find(patch, "part GloveBox { model roof { scale = 0, } }", 1, true) ~= nil
+    and string.find(patch, "part GloveBoxMVSC2 { model bar { file = VanLightbar,", 1, true) ~= nil, "原零件裡的其餘模型縮成 0、另開零件畫")
+check(string.find(patch, "Bumper", 1, true) == nil, "「多選一」款式的零件不拆")
+check(string.find(p2.loads[1] or "", "textureMask = Vehicles/van_mask,", 1, true) ~= nil, "第 0 款沒有自己的遮罩時用車種層級的")
+p3.skins = 1 -- 模擬 Lua 單獨重載：記錄清掉了、代理仍是上次的內容
+name, state = PV.resolve("Mod.Van", 1, "Vehicles/van_b")
+check(name == nil and state == "exhausted" and #p3.loads == 0, "不重用已用過的代理；用完時第 1 款以後回 nil（改畫貼圖）")
+name, state = PV.resolve("Mod.Van2", 0, "Vehicles/van2")
+check(name == "Mod.Van2" and state == "exhausted", "用完時第 0 款照原車種顯示並標示額度用完")
+check(PV.resolve("Mod.Van", 0, "Vehicles/van_a") == "MVSCPreview.PreviewBurnt02" and PV.resolve("Base.Plain", 0, "Vehicles/plain_a") == "Base.Plain",
+    "用完後看過的組合與不需要代理的車照常")
 
 print()
 if failures > 0 then

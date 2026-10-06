@@ -73,17 +73,19 @@ function S.collectScripts()
     for i = 0, list:size() - 1 do
         local s = list:get(i)
         local full = s:getFullName()
-        local bodies = s:getLoadedScriptBodies()
-        local src, overrides = "unknown", {}
-        if bodies and bodies:size() > 0 then
-            src = bodies:get(0)
-            for j = 2, bodies:size() - 1, 2 do
-                local m = bodies:get(j)
-                if m ~= src then overrides[#overrides + 1] = m end
+        if not M.isPreviewScript(full) then
+            local bodies = s:getLoadedScriptBodies()
+            local src, overrides = "unknown", {}
+            if bodies and bodies:size() > 0 then
+                src = bodies:get(0)
+                for j = 2, bodies:size() - 1, 2 do
+                    local m = bodies:get(j)
+                    if m ~= src then overrides[#overrides + 1] = m end
+                end
             end
+            out[full] = { name = displayName(s), nameKey = tostring(s:getCarModelName() or s:getName()), source = src,
+                sourceName = sourceName(src), overriddenBy = overrides, skins = s:getSkinCount() }
         end
-        out[full] = { name = displayName(s), nameKey = tostring(s:getCarModelName() or s:getName()), source = src,
-            sourceName = sourceName(src), overriddenBy = overrides, skins = s:getSkinCount() }
     end
     return out
 end

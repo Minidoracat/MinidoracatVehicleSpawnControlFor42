@@ -3,6 +3,7 @@ require "ISUI/ISPanel"
 require "ISUI/ISScrollingListBox"
 require "Vehicles/ISUI/ISUI3DScene"
 require "MinidoracatVehicleSpawnControl/MVSC_Widgets"
+require "MinidoracatVehicleSpawnControl/MVSC_Preview"
 
 local M = MinidoracatVehicleSpawnControl
 local C, U, W = M.Client, M.UI, M.W
@@ -53,7 +54,7 @@ function Tab:buildGroups()
     return out
 end
 
--- 塗裝色票：3D 預覽只能顯示第 0 款（AGENTS 踩坑），各款改以原始貼圖縮圖呈現。
+-- 塗裝色票：每款的原始貼圖縮圖，點一下切換 3D 預覽的塗裝（MVSC_Preview）。
 -- 名稱只能由 BaseVehicle:getSkin() 取得：建一台不加入世界的車逐款讀（Skin 類別沒暴露給 Lua）
 local skinCache = {}
 local function skinsOf(full)
@@ -91,40 +92,6 @@ local function brokenWheelPart(full)
     end)
     if not ok then print(M.LOG .. "preview check failed for " .. tostring(full) .. ": " .. tostring(err)) end
     return found
-end
-
--- 零件補畫：UI3DScene 每個零件只取第一個模型、有幾個模型就把它畫幾次（initPartModel 用 getModelInfoForPart(partId)，
--- UI3DScene.java:7439），其餘模型看不到（例：'87 Ford B700 巴士的車頂是 GloveBox 第 3 個模型）。
--- 能補的另建場景模型；場景模型只綁 "Texture"、只有靜態模型套變換（:3237-3285），所以只補「有自己貼圖、非 vehicle shader 的靜態模型」。
--- 輪胎零件（引擎走 initWheelModel）與掛在父零件骨架上的模型（initChildPartModel）也補不了。
--- 位置照引擎的零件模型變換：T(車身 offset + 車身 scale × 零件 offset)·R(零件 rotate)·S(車身 scale × 零件 scale)（:7305-7310,7478-7507）。
--- 回傳 擺放清單, 補不了的模型數
-local function partExtras(full)
-    local sm = getScriptManager()
-    local s = full and sm:getVehicle(full)
-    local out, missing = {}, 0
-    if not (s and s:getModel()) then return out, missing end
-    local sv, mo = s:getModelScale(), s:getModel():getOffset()
-    for i = 0, s:getPartCount() - 1 do
-        local part = s:getPart(i)
-        local tire = string.find(part:getId(), "^Tire") ~= nil
-        for k = 1, part:getModelCount() - 1 do
-            local m = part:getModel(k)
-            local ms = m:getFile() and sm:getModelScript(m:getFile())
-            if ms then -- 沒有檔名的模型由裝上的物品決定（如引擎蓋飾品），引擎預覽本來就不畫
-                local sh = string.lower(ms:getShaderName())
-                local vehicleShader = string.find(sh, "vehicle", 1, true) and not string.find(sh, "wheel", 1, true)
-                if tire or vehicleShader or not ms:isStatic() or not ms:getTextureName(true) or m:getAttachmentNameParent() then
-                    missing = missing + 1
-                else
-                    local o, r, ks = m:getOffset(), m:getRotate(), sv * m:getScale()
-                    out[#out + 1] = { file = m:getFile(), ks = ks, rot = { r:x(), r:y(), r:z() },
-                        pos = { mo:x() + sv * o:x(), mo:y() + sv * o:y(), mo:z() + sv * o:z() } }
-                end
-            end
-        end
-    end
-    return out, missing
 end
 
 -- 倍率在預設刻度間跳；手動輸入的非刻度值往相鄰刻度靠
@@ -167,7 +134,7 @@ function Tab:new(x, y, w, h)
     o.zoneRows = {}
     o.sel = W.selection()
     o.viewX, o.viewY = 0, 0
-    o.extras = {} -- 補畫的場景模型 id
+    o.skin = 0 -- 預覽中的塗裝（0 起算）
     return o
 end
 
@@ -373,39 +340,35 @@ end
 
 function Tab:focus(full)
     self.selectedFull = full
+    self.skin = 0
     self.blockedPart = brokenWheelPart(full)
-    local j = self.scene.javaObject
     if self.blockedPart then
         print(M.LOG .. "preview skipped for " .. full .. ": part " .. self.blockedPart .. " has a wheel but no model")
-    else
-        j:fromLua2("setVehicleScript", "v", full)
     end
-    j:fromLua2("setObjectVisible", "v", not self.blockedPart)
-    self:placeExtras(not self.blockedPart and full or nil)
-    -- 初始化當下模型若還沒載入，場景會一直空白直到再次 setVehicleScript（UI3DScene.java:6101-6105）
-    self.resetAt = not self.blockedPart and 30 or nil
-    self.swatches, self.peek = nil, nil
+    self:showPreview()
 end
 
--- 換車時重建補畫的場景模型（見 partExtras；full 為 nil 時只清掉）；補不了的零件在預覽說明註明
-function Tab:placeExtras(full)
+-- 把選中的車與塗裝送進 3D 場景：要換塗裝或補零件時交給代理車種，代理用完時第 1 款以後改畫貼圖（render）
+function Tab:showPreview()
     local j = self.scene.javaObject
-    for _, id in ipairs(self.extras) do j:fromLua1("removeModel", id) end
-    self.extras = {}
-    local list, missing = partExtras(full)
-    for i, e in ipairs(list) do
-        local id = "x" .. i
-        if pcall(function() j:fromLua2("createModel", id, e.file) end) then
-            self.extras[#self.extras + 1] = id
-            j:fromLua1("getObjectTranslation", id):set(e.pos[1], e.pos[2], e.pos[3])
-            j:fromLua1("getObjectRotation", id):set(e.rot[1], e.rot[2], e.rot[3])
-            -- 引擎畫零件模型時 X 軸鏡像（UI3DScene.java:7487）。ponytail: 假設模型沒設 invertX（Lua 讀不到這個欄位；原版沒有模型設它），設了的會左右相反
-            j:fromLua1("getObjectScale", id):set(-e.ks, e.ks, e.ks)
-        else
-            missing = missing + 1
-        end
+    local name, state
+    if self.blockedPart then
+        state = "blocked"
+    else
+        name, state = M.Preview.resolve(self.selectedFull, self.skin, skinsOf(self.selectedFull)[self.skin + 1])
     end
-    self.partsMissing = missing > 0
+    self.previewState = state
+    self.shownScript = name
+    if name then j:fromLua2("setVehicleScript", "v", name) end
+    j:fromLua2("setObjectVisible", "v", name ~= nil)
+    -- 初始化當下模型若還沒載入，場景會一直空白直到再次 setVehicleScript（UI3DScene.java:6101-6105）
+    self.resetAt = name and 30 or nil
+    self:updateMode()
+end
+
+-- 代理用完時，第 1 款以後的塗裝改以原始貼圖顯示在預覽區
+function Tab:showsTexture()
+    return self.mode == "single" and self.previewState == "exhausted" and self.shownScript == nil
 end
 
 function Tab:afterSelect()
@@ -426,7 +389,8 @@ function Tab:updateMode()
     local mode = n == 0 and "empty" or (n == 1 and "single" or "batch")
     self.mode = mode
     local single, batch = mode == "single", mode == "batch"
-    self.scene:setVisible(single and self.peek == nil)
+    -- 場景是子元件、會蓋住本分頁的繪製：改畫貼圖時先收起來
+    self.scene:setVisible(single and not self:showsTexture())
     for _, b in ipairs(self.viewBtns) do
         b:setVisible(not batch)
         b:setUsable(single)
@@ -521,11 +485,23 @@ function Tab:toggleMany(keys)
     self:afterSelect()
 end
 
--- 車款標題列的勾選框：全選／取消目前篩選下的所有車款
+-- 車款標題列的勾選框：全選／取消目前篩選下的所有車款；塗裝色票：切換預覽的塗裝
 function Tab:onMouseDown(x, y)
     if x >= IN - 4 and x <= IN + 24 and y >= self.vehTop - 2 and y <= self.vehTop + U.fontH() + 4 then
         self.sel:toggleAll(self.filtered or {})
         self:afterSelect()
+        return true
+    end
+    if self.mode == "single" and self.swatches then
+        for i, r in ipairs(self.swatches) do
+            if x >= r[1] and x < r[1] + r[3] and y >= r[2] and y < r[2] + r[3] then
+                if self.skin ~= i - 1 then
+                    self.skin = i - 1
+                    self:showPreview()
+                end
+                return true
+            end
+        end
     end
     return true
 end
@@ -719,20 +695,8 @@ function Tab:prerender()
         self.resetAt = self.resetAt - 1
         if self.resetAt <= 0 then
             self.resetAt = nil
-            if self.selectedFull then self.scene.javaObject:fromLua2("setVehicleScript", "v", self.selectedFull) end
+            if self.shownScript then self.scene.javaObject:fromLua2("setVehicleScript", "v", self.shownScript) end
         end
-    end
-    -- 滑到色票上：暫時收起 3D 場景，在同位置放大該款貼圖（場景是子元件，會蓋住父層繪製）
-    local peek
-    if self.swatches and self.mode == "single" then
-        local mx, my = self:getMouseX(), self:getMouseY()
-        for i, r in ipairs(self.swatches) do
-            if mx >= r[1] and mx < r[1] + r[3] and my >= r[2] and my < r[2] + r[3] then peek = i end
-        end
-    end
-    if peek ~= self.peek then
-        self.peek = peek
-        self.scene:setVisible(self.mode == "single" and peek == nil)
     end
     self.srcMult:setVisible(self.source ~= ALL)
     for i, c in ipairs(self.cols) do
@@ -785,13 +749,13 @@ function Tab:render()
 
     local full = self.selectedFull
     local names = skinsOf(full)
-    local peek = self.peek and self.swatches and self.swatches[self.peek]
-    if peek then
-        U.textRight(self, T("SkinPeek", tostring(self.peek), tostring(#names)), mx + mw - IN, IN, "text")
+    if self:showsTexture() then
+        U.textRight(self, T("SkinPeek", tostring(self.skin + 1), tostring(#names)), mx + mw - IN, IN, "text")
         U.fill(self, sc:getX(), sc:getY(), sc.width, sc.height, sc.backgroundColor, "rect")
-        if peek[4] then
+        local tex = names[self.skin + 1] and getTexture("media/textures/" .. names[self.skin + 1] .. ".png")
+        if tex then
             local size = math.min(sc.width, sc.height)
-            self:drawTextureScaled(peek[4], sc:getX() + math.floor((sc.width - size) / 2), sc:getY(), size, size, 1, 1, 1, 1)
+            self:drawTextureScaled(tex, sc:getX() + math.floor((sc.width - size) / 2), sc:getY(), size, size, 1, 1, 1, 1)
         end
     else
         U.textRight(self, U.fit(T("DragHint"), mw - IN * 2 - getTextManager():MeasureStringX(UIFont.Small, T("ColPreview")) - 16),
@@ -810,8 +774,8 @@ function Tab:render()
     if not C.isEnabled(full) then bx = bx + W.badge(self, T("StatusDisabled"), bx, y, "textMuted", "lock") + 6 end
     if v.new then W.badge(self, T("BadgeNew"), bx, y, "textMuted", "tag") end
     y = y + 28
-    local notes = { self.blockedPart and T("PreviewBlockedNote") or (#names > 1 and T("PreviewSkinHover") or T("PreviewSkinNote")) }
-    if self.partsMissing then notes[2] = T("PreviewPartsNote") end
+    local notes = { self.blockedPart and T("PreviewBlockedNote") or (#names > 1 and T("PreviewPaintNote") or T("PreviewColorNote")) }
+    if self.previewState == "exhausted" then notes[2] = T("PreviewQuotaNote") end
     for _, note in ipairs(notes) do
         for i, line in ipairs(U.wrap(note, mw - IN * 2)) do
             if i > 2 then break end
@@ -819,6 +783,7 @@ function Tab:render()
             y = y + FH + 2
         end
     end
+    self.swatches = nil
     if #names > 1 then self:drawSwatches(names, x, y + 6, mw - IN * 2, self.height - IN - y - 6) end
 
     U.text(self, U.fit(T("VehicleMult"), rw - IN * 2 - self.stepW - 8), rx + IN, self.vehMult:getY() + math.floor((ch - FH) / 2), "textMuted")
@@ -859,7 +824,7 @@ function Tab:drawBatchSummary(x, y, w)
     end
 end
 
--- 依可用空間縮放色票，塞不下的列不畫（12 款在 1280x780 面板約兩列）
+-- 依可用空間縮放色票，塞不下的列不畫（12 款在 1280x780 面板約兩列）；預覽中的那款用強調色框，滑過的框變亮
 function Tab:drawSwatches(names, x, y, w, h)
     local gap, s = 6, 64
     local cols = 1
@@ -868,6 +833,7 @@ function Tab:drawSwatches(names, x, y, w, h)
         if s <= 28 or math.ceil(#names / cols) * (s + gap) - gap <= h then break end
         s = s - 4
     end
+    local mx, my = self:getMouseX(), self:getMouseY()
     self.swatches = {}
     for i, name in ipairs(names) do
         local sx = x + ((i - 1) % cols) * (s + gap)
@@ -876,8 +842,10 @@ function Tab:drawSwatches(names, x, y, w, h)
         local tex = getTexture("media/textures/" .. name .. ".png")
         U.fill(self, sx, sy, s, s, "well", "rect")
         if tex then self:drawTextureScaled(tex, sx, sy, s, s, 1, 1, 1, 1) end
-        U.border(self, sx, sy, s, s, self.peek == i and U.COL.accent or { r = 1, g = 1, b = 1, a = 0.15 }, "rect")
-        self.swatches[i] = { sx, sy, s, tex }
+        local hover = self:isMouseOver() and mx >= sx and mx < sx + s and my >= sy and my < sy + s
+        local col = self.skin == i - 1 and U.COL.accent or { r = 1, g = 1, b = 1, a = hover and 0.6 or 0.15 }
+        U.border(self, sx, sy, s, s, col, "rect")
+        self.swatches[i] = { sx, sy, s }
     end
 end
 

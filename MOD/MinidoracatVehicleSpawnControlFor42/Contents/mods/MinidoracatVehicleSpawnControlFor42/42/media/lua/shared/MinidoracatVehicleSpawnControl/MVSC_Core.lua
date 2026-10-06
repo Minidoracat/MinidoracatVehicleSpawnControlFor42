@@ -14,6 +14,11 @@ M.MOD_ID = "MinidoracatVehicleSpawnControlFor42"
 M.LOG = "[MinidoracatVehicleSpawnControlFor42] "
 M.SCHEMA = 1
 M.VANILLA = "pz-vanilla" -- ScriptManager.java:652
+-- 3D 預覽換塗裝用的代理車種（media/scripts/MinidoracatVehicleSpawnControl_PreviewVehicles.txt）：不是真的車，目錄與設定都不列
+M.PREVIEW_MODULE = "MVSCPreview"
+function M.isPreviewScript(full)
+    return string.sub(full, 1, #M.PREVIEW_MODULE + 1) == M.PREVIEW_MODULE .. "."
+end
 
 -- 可覆寫的區域參數與範圍（VehicleType.java:20-36,87-133 讀取的數值欄位）
 M.ZONE_PARAMS = {
