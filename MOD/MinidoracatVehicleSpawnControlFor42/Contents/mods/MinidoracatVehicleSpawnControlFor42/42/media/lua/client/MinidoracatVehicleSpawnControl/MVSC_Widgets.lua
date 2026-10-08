@@ -55,6 +55,9 @@ local Button = MVSC_Button
 
 function W.button(parent, x, y, w, h, title, target, fn, style, icon)
     local b = Button:new(x, y, w, h, title, target, fn)
+    -- 原版 ISButton:new 在字比寬度長時自己撐寬（ISButton.lua:493-494），並排的按鈕就會互相蓋住；
+    -- 維持呼叫端給的寬度，render 截字並用滑鼠提示顯示全文
+    b.width = w
     b.style = style or "secondary"
     b.iconName = icon
     b:initialise()
@@ -353,6 +356,11 @@ function W.dialog(opts)
     local tm = getTextManager()
     local w = math.floor(460 * math.max(1, fh / 16))
     for _, l in ipairs(opts.lines or {}) do w = math.max(w, tm:MeasureStringX(UIFont.Small, l) + 60) end
+    -- 兩顆按鈕同寬、寬度跟著譯文；對話框至少要放得下兩顆，不然取消鈕會跑到框外（法文「停用此車（所有區域）」實機）
+    local bw = math.floor(140 * math.max(1, fh / 16))
+    bw = math.max(bw, tm:MeasureStringX(UIFont.Small, opts.confirm or U.T("Ok")) + 32)
+    if opts.cancel ~= false then bw = math.max(bw, tm:MeasureStringX(UIFont.Small, opts.cancel or U.T("Cancel")) + 32) end
+    w = math.max(w, opts.cancel ~= false and bw * 2 + 50 or bw + 40)
     w = math.min(w, getCore():getScreenWidth() - 80)
     local msgY = 16 + U.fontH(UIFont.Medium) + 12
     local lines = {}
@@ -361,7 +369,7 @@ function W.dialog(opts)
     local bh = W.ctrlH()
     local h = msgY + #lines * (fh + 4) + listH + (opts.input and (bh + 16) or 0) + bh + 32
     local d = Dialog:new(math.floor((getCore():getScreenWidth() - w) / 2), math.floor((getCore():getScreenHeight() - h) / 2), w, h)
-    d.opts, d.msgLines, d.msgY = opts, lines, msgY
+    d.opts, d.msgLines, d.msgY, d.bw = opts, lines, msgY, bw
     d.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     d.moveWithMouse = true
     d:initialise()
@@ -388,11 +396,8 @@ function Dialog:createChildren()
         self.entry.onCommandEntered = function() dialog:onConfirm() end
         self.entry.onOtherKey = function(_, key) if key == Keyboard.KEY_ESCAPE then dialog:onCancel() end end
     end
-    local tm = getTextManager()
     local confirm, cancel = o.confirm or U.T("Ok"), o.cancel or U.T("Cancel")
-    local bw = math.floor(140 * math.max(1, fh / 16))
-    bw = math.max(bw, tm:MeasureStringX(UIFont.Small, confirm) + 32)
-    if o.cancel ~= false then bw = math.max(bw, tm:MeasureStringX(UIFont.Small, cancel) + 32) end
+    local bw = self.bw
     local x = self.width - 20 - bw
     W.button(self, x, y, bw, bh, confirm, self, Dialog.onConfirm, o.danger and "danger" or "primary")
     if o.cancel ~= false then
