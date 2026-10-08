@@ -3,5 +3,5 @@ id=MinidoracatVehicleSpawnControlFor42
 description=[B42]用遊戲內面板或設定檔調整各區域生成多少車、生成哪些車，原版與 MOD 車輛自動列出；單人與多人皆可用。需 Minidoracat UI Library。By Minidoracat
 poster=poster.png
 require=MinidoracatUIFor42
-modversion=42.21.0-0.2.0
+modversion=42.21.0-0.3.0
 versionMin=42.20.4
