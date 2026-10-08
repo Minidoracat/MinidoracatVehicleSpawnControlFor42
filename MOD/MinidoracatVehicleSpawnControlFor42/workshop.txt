@@ -12,6 +12,8 @@ description=[h2]📦 Requirements[/h2]
 description=[list]
 description=[*] Required: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library for B42[/url] (listed under Required Items; the mod won't load without it)
 description=[*] Works in singleplayer and multiplayer; in multiplayer the server must enable this mod
+description=[*] [b]Add/remove mid-save:[/b] safe either way; settings only affect areas loaded for the first time afterwards
+description=[*] [b]Languages:[/b] 繁體中文, 简体中文, English, 日本語
 description=[/list]
 description=
 description=[h2]🚀 Quick start[/h2]
