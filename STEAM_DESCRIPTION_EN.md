@@ -10,7 +10,7 @@ Adjust how many vehicles spawn in each zone and which ones, from an in-game pane
 [*] Required: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library for B42[/url] (listed under Required Items; the mod won't load without it)
 [*] Works in singleplayer and multiplayer; in multiplayer the server must enable this mod
 [*] [b]Add/remove mid-save:[/b] safe either way; settings only affect areas loaded for the first time afterwards
-[*] [b]Languages:[/b] 繁體中文, 简体中文, English, 日本語
+[*] [b]Languages:[/b] 繁體中文, 简体中文, English, 日本語, 한국어, Русский, Español, Português, Türkçe, Français, Polski, Deutsch (languages other than Chinese, English and Japanese are AI-translated; corrections welcome)
 [/list]
 
 [h2]🚀 Quick start[/h2]
