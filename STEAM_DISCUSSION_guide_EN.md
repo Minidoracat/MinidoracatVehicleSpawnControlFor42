@@ -8,7 +8,7 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 
 [h2]🚀 Quick start[/h2]
 [list]
-[*] Also subscribe to the required [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library for B42[/url]; in multiplayer the server must enable this mod.
+[*] Also subscribe to the required [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library[/url]; in multiplayer the server must enable this mod.
 [/list]
 [olist]
 [*] Multiplayer: an admin with the Sandbox Options permission opens the vanilla Admin Panel and clicks the last button, "Vehicle Spawn Control".

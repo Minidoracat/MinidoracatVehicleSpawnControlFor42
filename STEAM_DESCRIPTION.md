@@ -7,7 +7,7 @@
 
 [h2]📦 需要安裝[/h2]
 [list]
-[*] 必裝：[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library for B42[/url]（Required Items 會一併列出，缺少會無法載入）
+[*] 必裝：[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library[/url]（Required Items 會一併列出，缺少會無法載入）
 [*] 單人與多人皆可用；多人遊戲需要伺服器啟用本 MOD
 [*] [b]中途加入／移除：[/b]都可以；設定只影響之後才第一次載入的區域
 [*] [b]介面語言：[/b]繁體中文、简体中文、English、日本語、한국어、Русский、Español、Português、Türkçe、Français、Polski、Deutsch（翻譯有問題請回報）

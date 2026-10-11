@@ -12,6 +12,12 @@
 
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號遵循 `{PZ版本}-{主版本}.{次版本}.{修訂}` 格式。
 
+## [42.21.0-0.3.1] - 2026-10-11
+
+### 變更
+
+- **遊戲內 MOD 清單的名稱改為「Minidoracat Vehicle Spawn Control」**（拿掉 for B42）；MOD ID 不變，不需要重新啟用，存檔與伺服器設定照常沿用。
+
 ## [42.21.0-0.3.0] - 2026-10-09
 
 ### 新增

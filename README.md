@@ -1,4 +1,4 @@
-# Minidoracat Vehicle Spawn Control for B42
+# Minidoracat Vehicle Spawn Control
 
 讓伺服器管理員用遊戲內面板或設定檔，調整各區域生成多少車、生成哪些車；原版與 MOD 車輛都會自動列出。單人遊戲也能使用。
 

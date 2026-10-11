@@ -8,7 +8,7 @@
 
 [h2]🚀 快速上手[/h2]
 [list]
-[*] 一併訂閱必要前置 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library for B42[/url]；多人遊戲需要伺服器啟用本 MOD。
+[*] 一併訂閱必要前置 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library[/url]；多人遊戲需要伺服器啟用本 MOD。
 [/list]
 [olist]
 [*] 多人：具備「沙盒設定」權限的管理員打開原版管理面板，按最後一格「車輛生成控制」。

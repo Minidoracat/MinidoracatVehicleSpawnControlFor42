@@ -1,7 +1,7 @@
-[h1]Minidoracat Vehicle Spawn Control for B42 42.21.0-0.3.0[/h1]
-[i]2026-10-09[/i]
+[h1]Minidoracat Vehicle Spawn Control 42.21.0-0.3.1[/h1]
+[i]2026-10-11[/i]
 
-[h3]✨ 新增[/h3]
+[h3]🔄 變更[/h3]
 [list]
-[*] [b]介面新增 8 種語言[/b]：韓文、俄文、西班牙文、葡萄牙文、土耳其文、法文、波蘭文、德文。遊戲語言選這些語言時，本 MOD 的介面、選項與提示會跟著顯示該語言（西班牙文同時用於阿根廷、智利、墨西哥，葡萄牙文同時用於葡萄牙）。翻譯有問題請回報。更新後重開遊戲生效。
+[*] [b]遊戲內 MOD 清單的名稱改為「Minidoracat Vehicle Spawn Control」[/b]（拿掉 for B42）；MOD ID 不變，不需要重新啟用，存檔與伺服器設定照常沿用。
 [/list]
