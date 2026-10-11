@@ -1,6 +1,6 @@
 version=1
 id=3812410742
-title=[B42] Minidoracat Vehicle Spawn Control
+title=[B42] Vehicle Spawn Control by Minidoracat
 description=[h1]🚗 Minidoracat Vehicle Spawn Control for B42[/h1]
 description=[h3]By Minidoracat[/h3]
 description=
