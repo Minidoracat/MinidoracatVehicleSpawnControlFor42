@@ -84,7 +84,7 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=3812410742
 [/list]
 [h3]沒有 3D 預覽的車[/h3]
 [list]
-[*] [b]原因[/b]：有些 MOD 會替車加上沒有模型的輪胎零件（例如 Immersive Snow 0.5.2），遊戲內建的 3D 預覽元件遇到這種車會出錯。
+[*] [b]原因[/b]：有些 MOD 會替車加上沒有模型的輪胎零件（例如 Immersive Snow 0.5.2 初版，作者已在 Patch 1 修好），遊戲內建的 3D 預覽元件遇到這種車會出錯。
 [*] [b]面板的處理[/b]：偵測到時不顯示這台車的 3D 預覽，並在預覽下方註明。
 [*] [b]其他照常[/b]：面板其他功能照常，實際生成的車不受影響。
 [/list]

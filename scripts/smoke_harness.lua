@@ -544,8 +544,9 @@ BaseVehicle = {
 require "MinidoracatVehicleSpawnControl/MVSC_Preview"
 local PV = M.Preview
 local p1, p2, p3 = PROXIES["MVSCPreview.PreviewBurnt01"], PROXIES["MVSCPreview.PreviewBurnt02"], PROXIES["MVSCPreview.PreviewBurnt03"]
+p2.parts = 1 -- 其他 MOD 開服時替所有車種加零件（Immersive Snow 的 ISnowShell），代理也有；這不算用過
 local name, state = PV.resolve("Base.Plain", 0, "Vehicles/plain_a")
-check(name == "Base.Plain" and state == "engine" and PV.remaining() == 3, "預設塗裝、沒有要拆的零件：直接預覽原車種，不用代理")
+check(name == "Base.Plain" and state == "engine" and PV.remaining() == 3, "預設塗裝、沒有要拆的零件：直接預覽原車種，不用代理；其他 MOD 加過零件的代理也算全新")
 name, state = PV.resolve("Base.Plain", 1, "Vehicles/plain_b")
 local head = p1.loads[1] or ""
 check(name == "MVSCPreview.PreviewBurnt01" and state == "proxy" and string.find(head, "texture = Vehicles/plain_b,", 1, true) ~= nil,
@@ -556,7 +557,7 @@ local loadsBefore = #p1.loads
 check(PV.resolve("Base.Plain", 1, "Vehicles/plain_b") == name and #p1.loads == loadsBefore and PV.remaining() == 2, "看過的組合沿用同一個代理")
 name, state = PV.resolve("Mod.Van", 0, "Vehicles/van_a")
 local patch = p2.loads[2] or ""
-check(name == "MVSCPreview.PreviewBurnt02" and state == "proxy", "有多模型零件的車，預設塗裝也用代理")
+check(name == "MVSCPreview.PreviewBurnt02" and state == "proxy", "有多模型零件的車，預設塗裝也用代理（其他 MOD 加過零件的代理照用）")
 check(string.find(patch, "part GloveBox { model roof { scale = 0, } }", 1, true) ~= nil
     and string.find(patch, "part GloveBoxMVSC2 { model bar { file = VanLightbar,", 1, true) ~= nil, "原零件裡的其餘模型縮成 0、另開零件畫")
 check(string.find(patch, "Bumper", 1, true) == nil, "「多選一」款式的零件不拆")

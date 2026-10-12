@@ -84,7 +84,7 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [/list]
 [h3]Vehicles without a 3D preview[/h3]
 [list]
-[*] [b]Cause[/b]: some mods give vehicles wheel parts without a model (Immersive Snow 0.5.2, for example), and the game's built-in 3D preview errors out on them.
+[*] [b]Cause[/b]: some mods give vehicles wheel parts without a model (the first release of Immersive Snow 0.5.2, for example; its author fixed it in Patch 1), and the game's built-in 3D preview errors out on them.
 [*] [b]What the panel does[/b]: detects this, skips the 3D preview for that vehicle and says so underneath.
 [*] [b]Everything else works[/b]: the rest of the panel keeps working and spawned vehicles are not affected.
 [/list]

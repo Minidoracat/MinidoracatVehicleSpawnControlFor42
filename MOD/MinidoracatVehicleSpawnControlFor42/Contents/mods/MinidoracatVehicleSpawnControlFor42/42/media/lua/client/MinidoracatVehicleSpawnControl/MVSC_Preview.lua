@@ -147,6 +147,10 @@ local function build(slot, full, k, skinTex)
     BaseVehicle.LoadVehicleTextures(px)
 end
 
+-- 只用全新的外殼：Lua 單獨重載（腳本沒重讀）時，記錄清掉了但代理還是上次的內容。
+-- 只看塗裝：build 第一步就載入塗裝，用過的必有；零件數不能看，其他 MOD 開服時會替所有車種加零件（Immersive Snow 的 ISnowShell）
+local function fresh(px) return px ~= nil and px:getSkinCount() == 0 end
+
 -- 預覽 full 的第 k 款（0 起算）。回傳 要給 setVehicleScript 的車種（nil＝改用貼圖）, 狀態：
 --   "engine"：直接用原車種（第 0 款、沒有要拆的零件）；"proxy"：代理；"exhausted"：代理用完或建立失敗
 function P.resolve(full, k, skinTex)
@@ -162,8 +166,7 @@ function P.resolve(full, k, skinTex)
         local slot = list[nextSlot]
         nextSlot = nextSlot + 1
         local px = getScriptManager():getVehicle(proxyFull(slot))
-        -- 只用全新的外殼：Lua 單獨重載（腳本沒重讀）時，記錄清掉了但代理還是上次的內容
-        if px and px:getSkinCount() == 0 and px:getPartCount() == 0 then
+        if fresh(px) then
             local ok, err = pcall(build, slot, full, k, skinTex)
             if not ok then
                 print(M.LOG .. "preview proxy for " .. key .. " failed: " .. tostring(err))
@@ -180,8 +183,7 @@ end
 function P.remaining()
     local list, n = slotList(), 0
     for i = nextSlot, #list do
-        local px = getScriptManager():getVehicle(proxyFull(list[i]))
-        if px and px:getSkinCount() == 0 and px:getPartCount() == 0 then n = n + 1 end
+        if fresh(getScriptManager():getVehicle(proxyFull(list[i]))) then n = n + 1 end
     end
     return n
 end
