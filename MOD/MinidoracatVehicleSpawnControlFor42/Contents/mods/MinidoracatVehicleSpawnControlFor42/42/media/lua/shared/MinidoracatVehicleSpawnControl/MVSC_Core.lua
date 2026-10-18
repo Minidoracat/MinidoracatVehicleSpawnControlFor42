@@ -229,7 +229,8 @@ end
 
 -- ---------------------------------------------------------------- 計算
 -- info = { sourceOf = { [script] = modId }, isNew = { [script] = true }, scripts = { [script] = true } }
--- 回 { [zone] = { vehicles = {...}, params = {...}, special = <bool|nil> } }，vehicles 只含權重 > 0 的車；
+-- 回 { [zone] = { vehicles = {...}, params = {...}, implied = {...}, special = <bool|nil> } }，vehicles 只含權重 > 0 的車；
+-- implied＝設定檔沒寫時實際會用的參數；params＝設定檔明寫值，沒寫就是 implied（面板顯示與「等於就不覆寫」都比 implied）；
 -- special 只有快照時是特殊區的才有，清單空時為 false。
 function M.enabled(cfg, info, script)
     local v = cfg.vehicles[script]
@@ -286,21 +287,22 @@ function M.build(base, cfg, info)
     for name, zone in pairs(base.zones) do
         local zc = cfg.zones[name]
         local o = out[name]
-        local params = {}
-        for p in pairs(M.ZONE_PARAMS) do
-            if zc and zc.params[p] ~= nil then params[p] = zc.params[p] else params[p] = zone.params[p] end
-        end
-        local function zero(p) if not (zc and zc.params[p] ~= nil) then params[p] = 0 end end
         local empty = isEmpty(o.vehicles)
+        local implied = {}
+        for p in pairs(M.ZONE_PARAMS) do implied[p] = zone.params[p] end
         if empty then
-            zero("chanceToSpawnSpecial")
-            zero("chanceToSpawnBurnt")
+            implied.chanceToSpawnSpecial = 0
+            implied.chanceToSpawnBurnt = 0
         end
         if zone.special then
             o.special = not empty
-            if o.special and stallEmpty then zero("chanceToSpawnNormal") end
+            if o.special and stallEmpty then implied.chanceToSpawnNormal = 0 end
         end
-        o.params = params
+        local params = {}
+        for p in pairs(M.ZONE_PARAMS) do
+            if zc and zc.params[p] ~= nil then params[p] = zc.params[p] else params[p] = implied[p] end
+        end
+        o.params, o.implied = params, implied
     end
     return out
 end

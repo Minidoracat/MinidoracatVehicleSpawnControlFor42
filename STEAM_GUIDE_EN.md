@@ -49,7 +49,7 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [*] [b]Pack multiplier[/b]: on the Vehicles tab, pick a source (vanilla or a mod) to make all of its vehicles more or less common in every zone at once; 0 disables the whole pack.
 [*] [b]Per-vehicle multiplier and disable[/b]: pick a vehicle to set its all-zones multiplier, or disable it everywhere.
 [*] [b]Zone weights[/b]: on the Zones tab, change each vehicle's weight in a zone, or add a vehicle to a zone that never had it; weight 0 removes it from that zone.
-[*] [b]Disabling a whole zone[/b]: when every vehicle in a zone is removed or disabled, the zone spawns nothing at all (no normal, special or burnt vehicles instead), and other zones no longer lose vehicles because of it. Odds you set for that zone yourself still apply.
+[*] [b]Disabling a whole zone[/b]: when every vehicle in a zone is removed or disabled, the zone spawns nothing at all (no normal, special or burnt vehicles instead), and other zones no longer lose vehicles because of it; the panel shows 0% special and burnt odds for that zone. Odds you set for that zone yourself still apply.
 [*] [b]Spawn paint[/b]: choose which paint job a vehicle uses when it spawns in a zone, or keep it random.
 [/list]
 [h3]How weights work[/h3]

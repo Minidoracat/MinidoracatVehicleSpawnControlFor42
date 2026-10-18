@@ -627,6 +627,21 @@ writeConfig({ zones = { parkingstall = emptyStall, police = { chanceToSpawnNorma
 advance(61000)
 check(pol.chanceToSpawnNormal == 30 and noBadWeights(), "管理員明確設定的參數照用")
 
+print("情境二十三：面板顯示實際會套用的參數（整區停用時特殊車、燒毀車是 0）")
+Cl.request()
+Cl.discard()
+check(Cl.paramOf("police", "chanceToSpawnSpecial") == 5, "清單有車時顯示原本的值（區域沒寫就是引擎預設 5）")
+Cl.batch(function()
+    for s in pairs(Cl.data.base.zones.police.vehicles) do Cl.setWeight("police", s, 0) end
+end)
+check(Cl.paramOf("police", "chanceToSpawnSpecial") == 0 and Cl.paramOf("police", "chanceToSpawnBurnt") == 0,
+    "整區停用後顯示實際會套用的 0，不是原本的 5")
+Cl.setParam("police", "chanceToSpawnSpecial", 5)
+check(Cl.draft.zones.police.chanceToSpawnSpecial == 5 and Cl.paramOf("police", "chanceToSpawnSpecial") == 5, "整區停用時拉到 5 記成明寫的參數")
+Cl.setParam("police", "chanceToSpawnSpecial", 0)
+check(Cl.draft.zones.police.chanceToSpawnSpecial == nil, "拉回實際會套用的 0 就移除覆寫，不留多餘的變更")
+Cl.discard()
+
 print()
 if failures > 0 then
     print(failures .. " 項失敗")

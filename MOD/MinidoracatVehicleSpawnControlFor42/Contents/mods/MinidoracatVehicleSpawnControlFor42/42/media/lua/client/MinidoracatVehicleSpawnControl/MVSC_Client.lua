@@ -197,11 +197,18 @@ function C.setWeight(zone, script, w)
     touched()
 end
 
+-- 草稿沒寫時實際會套用的參數（M.build 的 implied；清單空的區特殊車、燒毀車是 0），沒有就是引擎預設
+local function impliedParam(zone, param)
+    local eff = C.effective()
+    local v = eff and eff[zone] and eff[zone].implied[param]
+    if v == nil then return M.PARAM_DEFAULTS[param] end
+    return v
+end
+
+-- 等於不覆寫時會套用的值就移除覆寫（草稿保持最小）
 function C.setParam(zone, param, v)
     local z = zoneEntry(zone)
-    local orig = C.data.base.zones[zone] and C.data.base.zones[zone].params[param]
-    if orig == nil then orig = M.PARAM_DEFAULTS[param] end
-    if orig == v then z[param] = nil else z[param] = v end
+    if impliedParam(zone, param) == v then z[param] = nil else z[param] = v end
     touched()
 end
 
@@ -258,12 +265,11 @@ function C.weightOf(zone, script)
     return orig and orig.spawnChance or 0
 end
 
+-- 面板顯示的參數＝實際會套用的值：草稿有寫用草稿，否則用 impliedParam
 function C.paramOf(zone, param)
     local z = C.draft.zones[zone]
     if z and z[param] ~= nil then return z[param] end
-    local v = C.data.base.zones[zone] and C.data.base.zones[zone].params[param]
-    if v == nil then return M.PARAM_DEFAULTS[param] end
-    return v
+    return impliedParam(zone, param)
 end
 
 -- 原本（沒有任何覆寫）時某車在某區的占比 0–1；每份快照算一次
