@@ -139,11 +139,15 @@ local function freshDistribution()
             ["Base.CarNormal"] = { index = -1, spawnChance = 20 },
             ["Base.SmallCar"] = { index = -1, spawnChance = 15 },
             ["MilPack.M35"] = { index = -1, spawnChance = 2 },
+            -- 查不到的車名：寫錯（'67 Impala 的 MOD 實見）、前後多了空白
+            ["Base.67chevyImpala"] = { index = -1, spawnChance = 2 },
+            ["Base.SmallCar "] = { index = -1, spawnChance = 4 },
         } },
         police = { vehicles = { ["Base.CarNormal"] = { index = 1, spawnChance = 5 }, PickUpTruck = { index = -1, spawnChance = 3 } }, specialCar = true, spawnRate = 50 },
         business = business,
         business2 = business,
-        luxuryDealership = { vehicles = { ["Base.CarNormal"] = { index = -1, spawnChance = 1 } }, specialCar = true },
+        -- 和原版 42.21 一樣不是特殊區（原版 VehicleZoneDefinition.lua 的 luxuryDealership 沒有 specialCar）
+        luxuryDealership = { vehicles = { ["Base.CarNormal"] = { index = -1, spawnChance = 1 } } },
     }
 end
 freshDistribution()
@@ -203,6 +207,10 @@ check(cat.vehicles["Base.CarNormal"].name == "Chevalier Nyala" and cat.vehicles[
 check(cat.zones.business and cat.zones.business.aliases[1] == "business2" and cat.zones.business2 == nil, "別名區域只列一次並記在 aliases")
 check(math.abs(cat.zones.parkingstall.vehicles["Base.CarNormal"].percent - 54.1) < 0.01, "目錄顯示正規化後的占比")
 check(cat.vehicles["MVSCPreview.PreviewBurnt01"] == nil, "3D 預覽的代理車種不進車輛目錄")
+check(live("parkingstall")["Base.67chevyImpala"] == nil and live("parkingstall")["Base.SmallCar "] == nil
+    and cat.zones.parkingstall.original["Base.67chevyImpala"] == nil, "區域表裡查不到的車名（寫錯、前後多空白）不留在生效表與目錄")
+check(VehicleZoneDistribution.luxurydealership == VehicleZoneDistribution.luxuryDealership and cat.zones.luxuryDealership.aliases[1] == "luxurydealership"
+    and cat.zones.luxurydealership == nil, "有大寫的區域補上指向同一張表的小寫名稱（引擎只用小寫查），目錄仍以原樣鍵列出")
 local st = readJson(DIR .. "status.json")
 check(st.ok == true and st.revision == 1 and #st.newVehicles == 0, "首次安裝時現有車輛都不算新偵測")
 advance(61000)
@@ -222,6 +230,8 @@ check(p["Base.VanAmbulance"] and p["Base.VanAmbulance"].spawnChance == 4, "可�
 check(p["MilPack.M35"].spawnChance == 1, "來源倍率套用在 MOD 車")
 check(p["Base.SmallCar"] == nil and next(live("business")) == nil, "停用的車從所有區域移除（business 因此變空）")
 check(VehicleZoneDistribution.parkingstall.spawnRate == 30 and VehicleZoneDistribution.business2.chanceToSpawnBurnt == 10, "區域參數生效，別名共用同一張表")
+check(VehicleZoneDistribution.business.chanceToSpawnSpecial == 0 and VehicleZoneDistribution.business.chanceToSpawnBurnt == 10,
+    "清單空的區不再改抽特殊車；管理員明確設定的參數照用")
 check(noBadWeights(), "生效表沒有 <= 0 的權重")
 check(live("police").PickUpTruck == nil and live("police")["Base.PickUpTruck"] == nil, "區域表裡的短名也會被停用（快照時轉成完整名稱）")
 check(VehicleZoneDistribution.luxuryDealership.chanceToSpawnKey == 100, "大小寫混用的原版區域鍵照原樣接受")
@@ -244,13 +254,15 @@ advance(61000)
 st = readJson(DIR .. "status.json")
 local all = table.concat(st.errors, "\n")
 check(resets == 2 and #st.errors == 6, "六個錯誤都回報且未套用（" .. #st.errors .. "）")
-check(string.find(all, 'use "parkingstall"', 1, true) and string.find(all, 'use "luxuryDealership"', 1, true) and string.find(all, 'configure "business" instead', 1, true)
+check(string.find(all, 'use "parkingstall"', 1, true) and string.find(all, 'configure "luxuryDealership" instead', 1, true) and string.find(all, 'configure "business" instead', 1, true)
     and string.find(all, "zones.parkingstall.weights.Base.CarNormal", 1, true), "錯誤指出路徑與改法")
 
 print("情境六：整區所有車權重設 0 → 清單為空，不留 0 權重")
 writeConfig({ zones = { police = { weights = { ["Base.CarNormal"] = 0, ["Base.PickUpTruck"] = 0 } } } })
 advance(61000)
 check(resets == 3 and next(live("police")) == nil, "police 清單為空")
+check(VehicleZoneDistribution.police.specialCar == false and VehicleZoneDistribution.police.chanceToSpawnSpecial == 0
+    and VehicleZoneDistribution.police.chanceToSpawnBurnt == 0, "清空的特殊區不當特殊區、不改抽特殊車與燒毀車（別的區不會抽到空清單，整區一台都不生）")
 check(noBadWeights(), "生效表沒有 <= 0 的權重")
 check(live("parkingstall")["Base.SmallCar"] ~= nil and VehicleZoneDistribution.parkingstall.spawnRate == nil, "每次都從原始分布重算（上一份設定的停用與參數不殘留）")
 
@@ -431,6 +443,7 @@ local function liveFingerprint()
     for zone, def in pairs(VehicleZoneDistribution) do
         local p = {}
         for k in pairs(M.ZONE_PARAMS) do p[k] = def[k] end
+        p.specialCar = def.specialCar
         out[zone] = { vehicles = def.vehicles, params = p }
     end
     return M.jsonEncode(out)
@@ -594,6 +607,25 @@ check(used.script.getWheelCount() > 0 and not M.isPreviewScript(used.script.getF
 local normal = worldVehicle("Base.CarNormal", 2)
 fire("OnSpawnVehicleStart", normal)
 check(normal.sets == 0 and normal.skin == 2, "一般車種不動")
+
+print("情境二十二：清單空的區不會被別的區抽到；清單恢復後回到原狀")
+freshDistribution()
+VehicleZoneDistribution.SwatOnly = { vehicles = { ["Base.CarNormal"] = { index = -1, spawnChance = 1 } }, specialCar = true }
+writeConfig({ zones = { police = { weights = { ["Base.CarNormal"] = 0, ["Base.PickUpTruck"] = 0 } } } })
+S.base = nil
+fire("OnInitGlobalModData", false)
+local pol = VehicleZoneDistribution.police
+check(pol.specialCar == false and VehicleZoneDistribution.swatonly == nil and VehicleZoneDistribution.SwatOnly.specialCar == true,
+    "特殊區不補小寫別名（每個鍵各算一個特殊區，補了抽到它的機會加倍）")
+local emptyStall = { weights = { ["Base.CarNormal"] = 0, ["Base.SmallCar"] = 0, ["MilPack.M35"] = 0 } }
+writeConfig({ zones = { parkingstall = emptyStall } })
+advance(61000)
+check(pol.specialCar == true and pol.chanceToSpawnSpecial == nil and pol.chanceToSpawnBurnt == nil, "清單恢復後回到原本的特殊區與參數")
+check(next(live("parkingstall")) == nil and pol.chanceToSpawnNormal == 0 and VehicleZoneDistribution.SwatOnly.chanceToSpawnNormal == 0,
+    "parkingstall 清空後特殊區不再換成一般車（換過去會抽到空清單）")
+writeConfig({ zones = { parkingstall = emptyStall, police = { chanceToSpawnNormal = 30 } } })
+advance(61000)
+check(pol.chanceToSpawnNormal == 30 and noBadWeights(), "管理員明確設定的參數照用")
 
 print()
 if failures > 0 then

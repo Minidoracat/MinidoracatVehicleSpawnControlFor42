@@ -2,10 +2,13 @@
 -- 引擎事實（出處見 AGENTS.md「API 出處對照」與踩坑錄）：
 --   * VehicleType.init 以 100/權重總和正規化；權重全 0 會變 NaN 並固定選到最後一台（VehicleType.java:72-81、IsoChunk.java:1322-1334）
 --     → 停用一律「從清單移除」，套用結果不得出現 <= 0 的權重。
---   * 清單為空時 RandomizeModel 回 false，該區域本次不生車（IsoChunk.java:1004-1006,1318-1320）→ 這就是「整區停用」。
+--   * 停車區抽到空清單或不存在的車名時 RandomizeModel 回 false，那塊停車區在這個區塊剩下的車位都不生
+--     （IsoChunk.java:1004-1006,1318-1320,1334-1338）。抽到的不一定是自己的清單：一般區每格有 chanceToSpawnSpecial
+--     改抽一個 specialCar 區、各區有 chanceToSpawnBurnt 改抽燒毀車、特殊區有 chanceToSpawnNormal 改用 parkingstall
+--     （VehicleType.java:178-193）→ 快照丟掉查不到的車名；「整區停用」＝清單清空，並讓別的區不會再抽到它（M.build）。
 --   * spawnRate=0 仍有 1%（IsoChunk.java:996 用 <=），所以不拿 spawnRate 當停用開關。
---   * 快取以原樣鍵存入、查詢先轉小寫（VehicleType.java:55,135,160,173）。原版與 MOD 都有大小寫混用的區域鍵
---     （luxuryDealership、middleClass、MOD 的 SemiTankerOnly），所以設定檔的區域名必須和執行期表的鍵完全相同，不強制小寫。
+--   * 快取以原樣鍵存入、查詢先轉小寫（VehicleType.java:55,135,160,173）：有大寫的區域鍵引擎永遠查不到。原版與 MOD 都有
+--     （luxuryDealership、middleClass、MOD 的 SemiTankerOnly）；設定檔仍用執行期表的原樣鍵，伺服器開服時另補小寫別名（MVSC_Server）。
 require "MinidoracatVehicleSpawnControl/MVSC_Json"
 MinidoracatVehicleSpawnControl = MinidoracatVehicleSpawnControl or {}
 local M = MinidoracatVehicleSpawnControl
@@ -44,17 +47,26 @@ end
 -- 字典序最小的鍵當正式名稱，其他記成 aliases（只寫回一次，也不接受別名當設定鍵）。
 -- resolve(name) 回完整 script 名或 nil：MOD 常用不帶模組的短名（如 "SemiTruck"，E2E core-mp 實見），引擎查得到
 -- （ScriptManager.getVehicle），但停用與倍率以完整名稱比對，所以快照時統一成完整名稱；同名合併時權重相加。
-local function copyVehicles(vehicles, resolve)
+-- 查不到的（車名寫錯、前後多了空白、車輛 MOD 沒裝）不放進快照，記在 dropped[車名] = { 區域… }：
+-- 引擎抽到這種條目時那塊停車區剩下的車位都不生（IsoChunk.java:1334-1338,1004-1006），留著只會害別的車少生。
+local function copyVehicles(vehicles, resolve, dropped, zone)
     local out = {}
     if type(vehicles) ~= "table" then return out end
     for script, def in pairs(vehicles) do
         if type(def) == "table" then
             local name = tostring(script)
-            local full = resolve and resolve(name) or name
-            local w = tonumber(def.spawnChance) or 0
-            local cur = out[full]
-            if cur then cur.spawnChance = cur.spawnChance + w
-            else out[full] = { index = tonumber(def.index) or -1, spawnChance = w } end
+            local full = name
+            if resolve then full = resolve(name) end
+            if full == nil then
+                local zones = dropped[name] or {}
+                zones[#zones + 1] = zone
+                dropped[name] = zones
+            else
+                local w = tonumber(def.spawnChance) or 0
+                local cur = out[full]
+                if cur then cur.spawnChance = cur.spawnChance + w
+                else out[full] = { index = tonumber(def.index) or -1, spawnChance = w } end
+            end
         end
     end
     return out
@@ -70,7 +82,7 @@ function M.snapshot(dist, resolve)
             list[#list + 1] = k
         end
     end
-    local base = { zones = {}, aliasOf = {} }
+    local base = { zones = {}, aliasOf = {}, dropped = {} }
     for _, def in ipairs(byTable) do
         local keys = M.sortSafe(keysOf[def])
         local name = keys[1]
@@ -78,7 +90,9 @@ function M.snapshot(dist, resolve)
         for p in pairs(M.ZONE_PARAMS) do params[p] = def[p] end
         local aliases = {}
         for i = 2, #keys do aliases[#aliases + 1] = keys[i]; base.aliasOf[keys[i]] = name end
-        base.zones[name] = { vehicles = copyVehicles(def.vehicles, resolve), params = params, aliases = aliases, live = def }
+        -- special：原本是特殊區（specialCar）的才記，套用時清單空了就暫時取消（M.build）
+        base.zones[name] = { vehicles = copyVehicles(def.vehicles, resolve, base.dropped, name), params = params, aliases = aliases,
+            special = def.specialCar == true or nil, live = def }
     end
     return base
 end
@@ -215,7 +229,8 @@ end
 
 -- ---------------------------------------------------------------- 計算
 -- info = { sourceOf = { [script] = modId }, isNew = { [script] = true }, scripts = { [script] = true } }
--- 回 { [zone] = { vehicles = {...}, params = {...} } }，vehicles 只含權重 > 0 的車。
+-- 回 { [zone] = { vehicles = {...}, params = {...}, special = <bool|nil> } }，vehicles 只含權重 > 0 的車；
+-- special 只有快照時是特殊區的才有，清單空時為 false。
 function M.enabled(cfg, info, script)
     local v = cfg.vehicles[script]
     if v and v.enabled ~= nil then return v.enabled end
@@ -230,6 +245,12 @@ function M.multiplier(cfg, info, script)
     local v = cfg.vehicles[script]
     if v and v.multiplier then m = m * v.multiplier end
     return m
+end
+
+-- Kahlua 沒有 next()
+local function isEmpty(t)
+    for _ in pairs(t) do return false end
+    return true
 end
 
 function M.build(base, cfg, info)
@@ -255,11 +276,31 @@ function M.build(base, cfg, info)
                 vehicles[script] = { index = index, spawnChance = w }
             end
         end
+        out[name] = { vehicles = vehicles }
+    end
+    -- 別的區抽到空清單一樣會中斷（見檔頭）：清單空的區不當特殊區、不改抽特殊車與燒毀車（整區停用＝一台都不生）；
+    -- parkingstall 空了，特殊區也不再換成一般車。管理員在設定檔寫明的參數照用。
+    -- 已知限制：燒毀車固定從 normalburnt／specialburnt 抽（VehicleType.java:178-185），只清空其中一張時抽到它仍會中斷；
+    -- 要處理得把抽到空的那張導向另一張，等有人這樣設定再做。
+    local stallEmpty = out.parkingstall ~= nil and isEmpty(out.parkingstall.vehicles)
+    for name, zone in pairs(base.zones) do
+        local zc = cfg.zones[name]
+        local o = out[name]
         local params = {}
         for p in pairs(M.ZONE_PARAMS) do
             if zc and zc.params[p] ~= nil then params[p] = zc.params[p] else params[p] = zone.params[p] end
         end
-        out[name] = { vehicles = vehicles, params = params }
+        local function zero(p) if not (zc and zc.params[p] ~= nil) then params[p] = 0 end end
+        local empty = isEmpty(o.vehicles)
+        if empty then
+            zero("chanceToSpawnSpecial")
+            zero("chanceToSpawnBurnt")
+        end
+        if zone.special then
+            o.special = not empty
+            if o.special and stallEmpty then zero("chanceToSpawnNormal") end
+        end
+        o.params = params
     end
     return out
 end

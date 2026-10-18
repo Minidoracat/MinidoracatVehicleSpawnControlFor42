@@ -1,5 +1,6 @@
 -- MinidoracatVehicleSpawnControl 伺服器端（MP 專用伺服器與單人的權威端；MP client 不跑）。
---   開服：快照原始 VehicleZoneDistribution → 列舉車輛 script 與來源 MOD → 讀 config.json → 改表 → VehicleType.Reset()
+--   開服：替有大寫的區域補小寫別名 → 快照原始 VehicleZoneDistribution（丟掉查不到的車名）→ 列舉車輛 script 與來源 MOD
+--   → 讀 config.json → 改表 → VehicleType.Reset()
 --   之後每 60 秒（真實時間）讀一次 config.json，內容變了才解析、驗證、套用。
 -- 引擎事實：改表後必須 Reset() 才會生效；Reset 與生車同在伺服器主迴圈，可隨時呼叫
 --   （VehicleType.java:231-234、GameServer.java:972；E2E spike-mp 2026-09-26 實機驗證）。
@@ -152,6 +153,7 @@ local function writeLive(built)
         for script, def in pairs(z.vehicles) do vehicles[script] = { index = def.index, spawnChance = def.spawnChance } end
         live.vehicles = vehicles
         for p in pairs(M.ZONE_PARAMS) do live[p] = z.params[p] end
+        if z.special ~= nil then live.specialCar = z.special end -- 清單空的特殊區不讓隨機特殊車抽到（M.build）
     end
     VehicleType.Reset() -- 下一次生車時用新表重建快取
 end
@@ -293,13 +295,40 @@ local function loadHistory()
     return out
 end
 
+-- 有大寫的區域名（原版 luxuryDealership、middleClass，MOD 的 SemiTankerOnly）引擎永遠查不到：快取以原樣鍵存、
+-- 查詢先轉小寫（VehicleType.java:55,135,160,173），地圖上畫這種區的車位整塊不生車。補一個指向同一張表的小寫名稱，
+-- 快照會把它記成別名，設定檔照舊用原樣鍵。特殊區不補：每個鍵各算一個特殊區（:136-138），補了隨機特殊車抽到它的機會加倍。
+local function addLowercaseAliases(dist)
+    local keys = {}
+    for key, def in pairs(dist) do
+        if type(key) == "string" and type(def) == "table" and string.lower(key) ~= key then keys[#keys + 1] = key end
+    end
+    for _, key in ipairs(M.sortSafe(keys)) do
+        local lower, def = string.lower(key), dist[key]
+        local head = M.LOG .. "zone " .. key .. " can't be found by the game (it looks zones up in lowercase); "
+        if dist[lower] == nil and def.specialCar ~= true then
+            dist[lower] = def
+            print(head .. "added alias " .. lower)
+        elseif dist[lower] == nil then
+            print(head .. "not aliased: it is a special zone")
+        elseif dist[lower] ~= def then
+            print(head .. "not aliased: another zone is already named " .. lower)
+        end
+    end
+end
+
 -- ---------------------------------------------------------------- 開服與輪詢
 function S.init()
     if S.base then return end
+    addLowercaseAliases(VehicleZoneDistribution)
     S.base = M.snapshot(VehicleZoneDistribution, function(name)
         local s = ScriptManager.instance:getVehicle(name)
         return s and s:getFullName() or nil
     end)
+    for _, name in ipairs(M.sortedKeys(S.base.dropped)) do
+        print(M.LOG .. 'removed "' .. name .. '" from zone ' .. table.concat(S.base.dropped[name], ", ")
+            .. ": no vehicle has that name (the game would stop filling the parking lot whenever it picked it)")
+    end
     local catalog = S.collectScripts()
     local scripts = {}
     for full in pairs(catalog) do scripts[full] = true end

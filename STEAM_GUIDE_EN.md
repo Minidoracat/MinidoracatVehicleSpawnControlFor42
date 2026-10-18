@@ -33,6 +33,8 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [*] [b]Overridden vanilla vehicles[/b]: still count as vanilla and list the mod that overrides them.
 [*] [b]Variant groups[/b]: variants with the same name (burnt or wrecked versions of one model, for example) are grouped so you can adjust them together.
 [*] [b]New[/b]: vehicles that first appear after this mod was installed are marked "New", and you can keep them from spawning until you approve them (see newVehicles under "config.json fields").
+[*] [b]Broken spawn entries[/b]: when a vehicle mod's spawn list names a vehicle that does not exist (a typo, or a mod that is not installed), the server drops the entry at startup and notes it in the server log. Whenever the game picked such an entry, the rest of that parking lot stayed empty.
+[*] [b]Zones with capital letters[/b]: the game only looks zones up in lowercase, so vanilla luxuryDealership and middleClass (and some mod zones) never spawned anything. The server adds a lowercase name at startup so the game finds them. The vanilla map does not use these two zones; only custom maps that do will start spawning vehicles there.
 [/list]
 === 🧰 Spawn amount & vehicle mix
 {{img:04-zone-composition-en.jpg}}
@@ -47,6 +49,7 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [*] [b]Pack multiplier[/b]: on the Vehicles tab, pick a source (vanilla or a mod) to make all of its vehicles more or less common in every zone at once; 0 disables the whole pack.
 [*] [b]Per-vehicle multiplier and disable[/b]: pick a vehicle to set its all-zones multiplier, or disable it everywhere.
 [*] [b]Zone weights[/b]: on the Zones tab, change each vehicle's weight in a zone, or add a vehicle to a zone that never had it; weight 0 removes it from that zone.
+[*] [b]Disabling a whole zone[/b]: when every vehicle in a zone is removed or disabled, the zone spawns nothing at all (no normal, special or burnt vehicles instead), and other zones no longer lose vehicles because of it. Odds you set for that zone yourself still apply.
 [*] [b]Spawn paint[/b]: choose which paint job a vehicle uses when it spawns in a zone, or keep it random.
 [/list]
 [h3]How weights work[/h3]
@@ -183,7 +186,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [/table]
 [h3]Notes[/h3]
 [list]
-[*] [b]Zone names[/b]: must match catalog.json exactly, including upper and lower case.
+[*] [b]Zone names[/b]: must match catalog.json exactly, including upper and lower case. Zones with capital letters also get a lowercase alias at startup (for example luxurydealership); write the original name.
 [*] [b]business aliases[/b]: business2 to business12 are aliases of business, so write business.
 [*] [b]Removed vehicles or zones[/b]: only produce a warning and do not block the rest of the file.
 [*] [b]Nothing lingers[/b]: every apply is recalculated from the original distribution captured at startup, so old settings never linger.
@@ -238,6 +241,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [list]
 [*] Changes made before startup are picked up normally.
 [*] Changes another mod makes after startup are overwritten the next time this mod applies its settings.
+[*] Some vehicle packs define special zones without putting any vehicle in them (for example PZK VLC's highway maintenance, power and phone company zones). Ordinary parking lots no longer pick these empty zones, which used to leave the rest of the lot empty.
 [/list]
 [h3]What happens if I remove this mod?[/h3]
 [list]
