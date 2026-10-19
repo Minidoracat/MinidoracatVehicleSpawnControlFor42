@@ -22,7 +22,7 @@ Project Zomboid Build 42 MOD。
 | ![Batch edit of selected vehicles](docs/screenshots/en/03-batch-edit.png) | ![Vehicle mix of a zone](docs/screenshots/en/04-zone-composition.png) |
 | ![Pending changes before applying](docs/screenshots/en/05-pending-changes.png) | ![Change history with details](docs/screenshots/en/06-change-history.png) |
 
-日文截圖在 `docs/screenshots/jp/`。Steam Workshop 用的 JPG（每張 ≤280KB）在 `docs/screenshots/steam/{en,zh,jp}/`，`publish_workshop.py --mode screenshots` 依英文→中文→日文、檔名順序同步到作品頁。
+日文截圖在 `docs/screenshots/jp/`。Steam Workshop 用的 JPG（每張 ≤280KB）在 `docs/screenshots/steam/{en,zh,jp}/`，作品頁依英文→中文→日文、檔名順序排列。
 
 ## 功能
 
