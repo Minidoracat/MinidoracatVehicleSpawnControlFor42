@@ -3,13 +3,13 @@
 
 [hr][/hr]
 
-Adjust how many vehicles spawn in each zone and which ones, from an in-game panel or a config file. Vanilla and modded vehicles are listed automatically.
+Adjust how many vehicles spawn in each zone and which ones, from an in-game panel or a config file. Vanilla and modded vehicles are listed automatically. It can also bring parking lots nobody has visited for a long time back to the vanilla average number of vehicles (off by default).
 
 [h2]📦 Requirements[/h2]
 [list]
 [*] Required: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3789836701]Minidoracat UI Library[/url] (listed under Required Items; the mod won't load without it)
 [*] Works in singleplayer and multiplayer; in multiplayer the server must enable this mod
-[*] [b]Add/remove mid-save:[/b] safe either way; settings only affect areas loaded for the first time afterwards
+[*] [b]Add/remove mid-save:[/b] safe either way; spawn settings only affect areas loaded for the first time afterwards, and refill starts recording once you turn it on
 [*] [b]Languages:[/b] 繁體中文, 简体中文, English, 日本語, 한국어, Русский, Español, Português, Türkçe, Français, Polski, Deutsch (please report any translation issues)
 [/list]
 
@@ -30,6 +30,7 @@ Adjust how many vehicles spawn in each zone and which ones, from an in-game pane
 [*] [b]Batch edits[/b]: select several vehicles to change multipliers, disable them or add them to zones
 [*] [b]Config file sync[/b]: save the file and it applies; a mistake keeps the old settings and points to the error
 [*] [b]History and restore[/b]: see who changed what and roll back to an earlier revision
+[*] [b]Parking lot refill (off by default)[/b]: parking lots players have visited but nobody has been near for 7 days (real time) get back the vanilla average number of vehicles; cars are only added where no player can see, and no vehicle is ever deleted or moved
 [*] [b]Vanilla permissions[/b]: in multiplayer, only roles with the Sandbox Options permission can make changes
 [/list]
 📖 [b]Config file fields, feature details, known limitations and FAQ:[/b] [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3817839906]Vehicle Spawn Control Mod Guide: Panel & Config File[/url]

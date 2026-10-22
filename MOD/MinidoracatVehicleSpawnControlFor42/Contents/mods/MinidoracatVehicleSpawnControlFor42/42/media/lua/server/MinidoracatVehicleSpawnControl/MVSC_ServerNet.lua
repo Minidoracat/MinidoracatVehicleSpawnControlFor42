@@ -58,7 +58,7 @@ function N.sendSnapshot(player)
     end
     if n > 0 then N.reply(player, "vehicles", { sync = sync, items = batch }) end
     N.reply(player, "done", { sync = sync, revision = S.state.revision, config = M.toRaw(S.cfg),
-        status = statusCopy(), history = M.copy(S.history) })
+        status = statusCopy(), history = M.copy(S.history), respawn = M.Respawn and M.Respawn.summary() or nil })
 end
 
 local function username(player)

@@ -90,6 +90,12 @@ function U.describeChange(e)
     if e.k == "policy" then
         local name = function(v) return v == "disable" and T("NewDisable") or T("NewKeep") end
         return T("ChangePolicy", name(e.a), name(e.b))
+    elseif e.k == "respawn" and e.p == "enabled" then
+        return T(e.b == true and "ChangeRespawnOn" or "ChangeRespawnOff")
+    elseif e.k == "respawn" and e.p == "density" then
+        return T("ChangeRespawnDensity", U.num(e.a) .. "%", U.num(e.b) .. "%") -- 翻譯不放裸 %
+    elseif e.k == "respawn" then
+        return T(e.p == "safehouseMargin" and "ChangeRespawnMargin" or "ChangeRespawnHours", U.num(e.a), U.num(e.b))
     elseif e.k == "source" then
         return T("ChangeSource", U.packName(e.s), mult(e.a), mult(e.b))
     elseif e.k == "vehicle" and e.p == "enabled" then

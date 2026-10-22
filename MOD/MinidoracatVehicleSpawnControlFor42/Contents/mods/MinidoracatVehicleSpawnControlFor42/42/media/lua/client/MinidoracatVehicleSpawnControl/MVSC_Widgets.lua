@@ -608,7 +608,7 @@ end
 
 -- ---------------------------------------------------------------- 數字步進器：[－] 數值 [＋]，點數值可直接輸入
 -- opts = { get = fn() → 數值或 nil（混合）, set = fn(v), step = fn(v, dir) → 新值, format = fn(v) → 文字,
---          title = 對話框標題, prompt = 對話框說明 }
+--          title = 對話框標題, prompt = 對話框說明, tip = 滑過數值時的提示（選用，預設用 title） }
 MVSC_Stepper = ISPanel:derive("MVSC_Stepper")
 local Stepper = MVSC_Stepper
 
@@ -649,7 +649,7 @@ end
 function Stepper:prerender()
     local v = self.opts.get()
     self.value:setTitle(self.opts.format(v))
-    self.value.hint = self.opts.title
+    self.value.hint = self.opts.tip or self.opts.title
 end
 
 -- ---------------------------------------------------------------- 自繪區域的提示框（原版 ISToolTip；擁有者隱藏時自己收起，ISToolTip.lua:58）
@@ -662,6 +662,9 @@ function W.tip(owner, text)
             t:setOwner(owner)
             t:setAlwaysOnTop(true)
             t.maxLineWidth = 1000
+            -- 新建的 Java 元件預設可見（ISUIElement:getIsVisible 會先 instantiate，ISUIElement.lua:676-681）：
+            -- 不先關掉，下面就不會 addToUIManager，第一次滑過時提示不出現
+            t:setVisible(false)
             owner.mvscTip = t
         end
         if not t:getIsVisible() then

@@ -1,7 +1,7 @@
 <!-- 指南網址：https://steamcommunity.com/sharedfiles/filedetails/?id=3817839906 -->
 <!-- Steam guide source (English): the full reference for this mod; the Workshop description only summarizes. Format and sync: pz-family-docs/release.md「完整說明：Steam 指南」 -->
 <!-- 標題：📖 Vehicle Spawn Control Mod Guide: Panel & Config File -->
-<!-- 摘要：Illustrated guide to the Minidoracat Vehicle Spawn Control mod: using the in-game panel to set each zone's spawn amount and vehicle mix, the 3D preview and paint jobs, batch edits, history and restore, plus permissions, the config file format, known limitations and FAQ. -->
+<!-- 摘要：Illustrated guide to the Minidoracat Vehicle Spawn Control mod: using the in-game panel to set each zone's spawn amount and vehicle mix, the 3D preview and paint jobs, batch edits, history and restore, parking lot refill, plus permissions, the config file format, known limitations and FAQ. -->
 === 🚀 Quick start
 [b]繁體中文版：[/b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3817839865]車輛生成控制 MOD 完整說明[/url]
 
@@ -117,6 +117,19 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [*] [b]Restore[/b]: you can restore any of the last 10 revisions that were in effect.
 [*] [b]Offline edits[/b]: edits made to the config file while the server was offline are listed at the next startup.
 [/list]
+=== 🧰 Parking lot refill (off by default)
+Vanilla only spawns vehicles the first time an area generates: once players drive cars away, wreck them or strip them, that spot stays empty. With refill on, parking lots that players have visited but nobody has been near for a long time slowly get back the vanilla average number of vehicles.
+[list]
+[*] [b]Turning it on[/b]: on panel page 3 "Refill", press "On" and then "Apply changes", or add respawn to config.json (see "config.json fields"). No server restart needed.
+[*] [b]How long nobody must be there[/b]: 168 hours (7 days) by default, in real time, whatever the day length is; time with the server shut down or paused while empty also counts. A lot is refilled only if it had been empty that long before players came near this time, and only once per visit.
+[*] [b]How many vehicles[/b]: each block (64×64 tiles) is filled up to the vanilla average, counting the cars already there, so not every spot gets a car. For example, at the default sandbox Vehicle Spawn Rate a regular parking spot has a car about 17% of the time, so 10 spots get 1 or 2 cars. "Refill up to this share" can be set from 10% to 100% of the vanilla average.
+[*] [b]Only places someone has visited[/b]: lots nobody ever saw still have their original cars, so they are skipped. "Visited" means the game's own record for that area, or a player coming near after refill was turned on.
+[*] [b]Where it never refills[/b]: anywhere players can see (within about 88 tiles of any player in multiplayer, 40 in singleplayer), around safehouses (10 tiles by default, plus half the car's length), where players have built something, and spots blocked by a vehicle, item, corpse, wall, tree or water.
+[*] [b]What gets added[/b]: vehicle types are drawn from that zone's spawn list (burnt and special vehicles included); condition, rust, fuel and alarms follow vanilla odds.
+[*] [b]It only adds vehicles[/b]: no vehicle already in the world is deleted, moved or repaired; vehicles managed by ownership or vehicle-claim mods are untouched, and the new cars are ordinary unowned vehicles to them.
+[*] [b]Right after turning it on[/b]: recording starts at that moment; places without enough record yet use the game's own "last seen" game time, converted with the day length, so lots long left alone can be refilled on day one. On a multiplayer server the game only records that time when a player sees inside a building, so an outdoor lot whose nearby buildings nobody looked into has no record: it is refilled only after someone visits it once with refill on and then nobody comes near for the threshold. Turning refill off clears the record, and turning it back on starts over.
+[*] [b]Player footprints stay on the server[/b]: the record lives in a folder on the server and players cannot request it; the panel only shows totals (vehicles added, where the latest refills were, why spots were skipped last time).
+[/list]
 === ⚙️ Permissions
 [list]
 [*] [b]Multiplayer[/b]: uses the vanilla role permission "Sandbox Options" (moderators and admins have it by default, GMs do not).
@@ -137,6 +150,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [tr][td]catalog.json (read-only)[/td][td]Every vehicle, its source mod, the zones it appears in and its actual share. Copy vehicle and zone names from here[/td][/tr]
 [tr][td]status.json (read-only)[/td][td]Whether the last check succeeded, plus errors, warnings and newly detected vehicles[/td][/tr]
 [tr][td]history.json, backups/[/td][td]The change history and backups of the last 10 applied configs[/td][/tr]
+[tr][td]respawn/<world name>/[/td][td]The refill record of where players have been (only which blocks were visited and when); do not edit it[/td][/tr]
 [tr][td]state.json[/td][td]Internal state; do not edit it[/td][/tr]
 [/table]
 [h3]Config file sync[/h3]
@@ -166,7 +180,8 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
       "weights": { "Base.CarNormal": 20, "Base.VanAmbulance": 3 },
       "skins": { "Base.CarNormal": 2 }
     }
-  }
+  },
+  "respawn": { "enabled": true, "unseenHours": 168, "density": 100, "safehouseMargin": 10 }
 }
 [/code]
 [table]
@@ -177,6 +192,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [tr][td]zones[/td][td]Zone name to zone settings, weights and skins[/td][/tr]
 [tr][td]weights[/td][td]0 or more; 0 removes the vehicle from that zone, and you can add vehicles the zone never had[/td][/tr]
 [tr][td]skins[/td][td]Paint job number, -1 for random[/td][/tr]
+[tr][td]respawn[/td][td]Parking lot refill: enabled (default false), unseenHours real hours nobody was near before refilling (default 168, 1–8760), density refill up to this % of the vanilla average (default 100, 10–100), safehouseMargin no refill within this many tiles of a safehouse (default 10, whole numbers 0–50); missing fields use the defaults[/td][/tr]
 [/table]
 [h3]Zone settings[/h3]
 [table]
@@ -201,11 +217,21 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [*] [b]Wheel parts without a model[/b]: when another mod gives a vehicle such parts, that vehicle has no 3D preview (spawned vehicles are not affected).
 [*] [b]Shared config[/b]: the config file lives in the user folder, so every singleplayer save and self-hosted server using that folder shares one config.
 [*] [b]PauseEmpty[/b]: with this server option on, the whole server pauses while no player is online, so config file edits only apply once someone joins; this is how the game itself works.
+[*] [b]Refill keys[/b]: refilled vehicles come with a key at the game's default 70%, regardless of the zone's key chance.
+[*] [b]Refill parking zones[/b]: parking zones drawn as polylines are not refilled; refilled cars sit slightly off-center and at a small angle compared with vanilla spawns.
+[*] [b]Refill in singleplayer[/b]: the threshold is real time, so time with the game closed also counts.
 [/list]
 === ❓ FAQ
 [h3]I changed the settings but the cars on the road are the same?[/h3]
 [list]
 [*] Settings only affect areas generated from now on; check a place you have not visited yet.
+[/list]
+[h3]Refill is on, but the parking lot is still empty?[/h3]
+[list]
+[*] It has not been empty long enough yet (7 days of real time by default), or it was already refilled on this visit.
+[*] Refill brings back the vanilla average, not a car in every spot; cars already there count.
+[*] Cars are only added where no player can see; the area around you is already loaded when you walk up, so leave for a while and come back.
+[*] The panel's "Refill" page lists why spots were skipped last time (player too close, spot blocked, near a safehouse).
 [/list]
 [h3]I raised a weight but the total number of cars did not go up?[/h3]
 [list]

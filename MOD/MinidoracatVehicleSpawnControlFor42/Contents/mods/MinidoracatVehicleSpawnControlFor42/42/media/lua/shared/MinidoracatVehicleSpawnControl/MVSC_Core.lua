@@ -38,8 +38,26 @@ M.ZONE_PARAMS = {
 M.PARAM_DEFAULTS = { spawnRate = 16, chanceToSpawnNormal = 80, chanceToSpawnBurnt = 0, chanceToSpawnSpecial = 5,
     chanceToPartDamage = 0, chanceToSpawnKey = 70, baseVehicleQuality = 1.0 }
 
+-- 已探索停車區補車（MVSC_Respawn）：預設關閉。unseenHours 是現實小時（getTimestamp），不是遊戲小時
+M.RESPAWN_DEFAULTS = { enabled = false, unseenHours = 168, density = 100, safehouseMargin = 10 }
+M.RESPAWN_RANGES = { unseenHours = { 1, 8760 }, density = { 10, 100 }, safehouseMargin = { 0, 50 } }
+
 function M.defaultConfig()
-    return { schema = M.SCHEMA, newVehicles = "keep", sources = {}, vehicles = {}, zones = {} }
+    local respawn = {}
+    for k, v in pairs(M.RESPAWN_DEFAULTS) do respawn[k] = v end
+    return { schema = M.SCHEMA, newVehicles = "keep", sources = {}, vehicles = {}, zones = {}, respawn = respawn }
+end
+
+-- 引擎在一個車位放車的機率（IsoChunk.AddVehicles_OnZone :985-996）：區域 spawnRate 依沙盒 CarSpawnRate 換算
+-- （1 無、2 極低 /10 進位、3 低 /1.5 進位、4 一般、5 高 ×2；反編譯把 5 寫成固定 2，javap 看到的是 ×2），
+-- 判斷用 Rand.Next(100) <= chance 所以多 1%。補車的目標車數與面板說明共用
+function M.stallChance(spawnRate, carSpawnRate)
+    local rate, s = tonumber(spawnRate) or M.PARAM_DEFAULTS.spawnRate, tonumber(carSpawnRate) or 4
+    if s == 1 then return 0 end
+    if s == 2 then rate = math.ceil(rate / 10)
+    elseif s == 3 then rate = math.ceil(rate / 1.5)
+    elseif s == 5 then rate = rate * 2 end
+    return math.min(rate + 1, 100) / 100
 end
 
 -- ---------------------------------------------------------------- 原始分布快照
@@ -115,7 +133,8 @@ function M.validate(raw, ctx)
         return nil, errors, warnings
     end
     local cfg = M.defaultConfig()
-    local known = { schema = true, revision = true, newVehicles = true, sources = true, vehicles = true, zones = true }
+    local known = { schema = true, revision = true, newVehicles = true, sources = true, vehicles = true, zones = true,
+        respawn = true }
     for k in pairs(raw) do
         if not known[k] then warn(k, "unknown key, ignored") end
     end
@@ -123,6 +142,24 @@ function M.validate(raw, ctx)
     if raw.newVehicles ~= nil then
         if raw.newVehicles == "keep" or raw.newVehicles == "disable" then cfg.newVehicles = raw.newVehicles
         else err("newVehicles", 'must be "keep" or "disable"') end
+    end
+
+    if raw.respawn ~= nil then
+        if not isObject(raw.respawn) then err("respawn", 'must be an object like { "enabled": true }')
+        else
+            for k, v in pairs(raw.respawn) do
+                local path, range = "respawn." .. k, M.RESPAWN_RANGES[k]
+                if k == "enabled" then
+                    if type(v) == "boolean" then cfg.respawn.enabled = v
+                    else err(path, "must be true or false") end
+                elseif range then
+                    if checkNumber(v, range[1], range[2]) and (k ~= "safehouseMargin" or v == math.floor(v)) then cfg.respawn[k] = v
+                    else err(path, "must be a number from " .. range[1] .. " to " .. range[2]) end
+                else
+                    warn(path, "unknown key, ignored")
+                end
+            end
+        end
     end
 
     if raw.sources ~= nil then
@@ -315,10 +352,16 @@ function M.copy(v)
     return out
 end
 
--- validate 產出的結構轉回 config.json 的格式（面板送回伺服器、寫檔）
+-- validate 產出的結構轉回 config.json 的格式（面板送回伺服器、寫檔）。respawn 只寫和預設不同的值（同其他欄位，草稿保持最小）
 function M.toRaw(cfg)
     local raw = { schema = M.SCHEMA, newVehicles = cfg.newVehicles, sources = M.copy(cfg.sources),
         vehicles = M.copy(cfg.vehicles), zones = {} }
+    for k, v in pairs(cfg.respawn or {}) do
+        if v ~= M.RESPAWN_DEFAULTS[k] then
+            raw.respawn = raw.respawn or {}
+            raw.respawn[k] = v
+        end
+    end
     for name, z in pairs(cfg.zones) do
         local e = M.copy(z.params)
         local hasW, hasS = false, false
@@ -368,7 +411,7 @@ function M.head(list, n)
 end
 
 -- 兩份 raw 設定的結構化差異（變更紀錄與「未套用變更」用來寫人看得懂的摘要）。
--- 每項 { k = 種類, z = 區域, s = 車／來源, p = 參數, a = 舊值, b = 新值 }；k：policy／source／vehicle／param／weight／skin。
+-- 每項 { k = 種類, z = 區域, s = 車／來源, p = 參數, a = 舊值, b = 新值 }；k：policy／respawn／source／vehicle／param／weight／skin。
 -- 不用 diff 的點號路徑：車名本身含點（Base.CarNormal），拆不回來
 function M.changes(a, b)
     a, b = a or {}, b or {}
@@ -383,6 +426,13 @@ function M.changes(a, b)
         for _, k in ipairs(M.sortedKeys(keys)) do fn(k, (ta or {})[k], (tb or {})[k]) end
     end
     add({ k = "policy", a = a.newVehicles or "keep", b = b.newVehicles or "keep" })
+    local ra, rb = a.respawn or {}, b.respawn or {}
+    for _, p in ipairs(M.sortedKeys(M.RESPAWN_DEFAULTS)) do
+        local x, y = ra[p], rb[p]
+        if x == nil then x = M.RESPAWN_DEFAULTS[p] end
+        if y == nil then y = M.RESPAWN_DEFAULTS[p] end
+        add({ k = "respawn", p = p, a = x, b = y })
+    end
     each(a.sources, b.sources, function(src, x, y)
         add({ k = "source", s = src, a = (x or {}).multiplier or 1, b = (y or {}).multiplier or 1 })
     end)

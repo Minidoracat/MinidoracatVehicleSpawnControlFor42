@@ -64,8 +64,14 @@ local function finishSnapshot(args)
     end
     for full, v in pairs(L.vehicles) do v.display = localName(v, full) end
     local dirty = C.hasChanges()
+    -- 補車統計（伺服器回報幾秒前補的，換成本機時間，客戶端與伺服器的時鐘不必一致）
+    local respawn = args.respawn
+    if type(respawn) == "table" and type(respawn.recent) == "table" then
+        for _, e in ipairs(respawn.recent) do e.atMs = getTimestampMs() - (tonumber(e.ago) or 0) * 1000 end
+    end
     C.data = { revision = args.revision, base = base, catalog = L.vehicles, info = buildInfo(L.vehicles),
-        config = args.config or M.toRaw(M.defaultConfig()), status = args.status or {}, history = args.history or {} }
+        config = args.config or M.toRaw(M.defaultConfig()), status = args.status or {}, history = args.history or {},
+        respawn = type(respawn) == "table" and respawn or nil }
     C.loading = nil
     C.stale = nil
     if not dirty or C.replaceDraft then C.draft = M.copy(C.data.config) end
@@ -236,6 +242,28 @@ end
 
 function C.setNewVehicles(mode)
     C.draft.newVehicles = mode
+    touched()
+end
+
+-- 補車設定（草稿）：key＝enabled／unseenHours／density／safehouseMargin
+function C.respawnOf(key)
+    local r = C.draft and C.draft.respawn
+    if r and r[key] ~= nil then return r[key] end
+    return M.RESPAWN_DEFAULTS[key]
+end
+
+-- 等於預設就移除（草稿保持最小，同 setMultiplier）
+function C.setRespawn(key, value)
+    local range = M.RESPAWN_RANGES[key]
+    if range then
+        value = math.max(range[1], math.min(range[2], value))
+        if key == "safehouseMargin" then value = math.floor(value + 0.5) end
+    end
+    local r = C.draft.respawn or {}
+    if value == M.RESPAWN_DEFAULTS[key] then r[key] = nil else r[key] = value end
+    local empty = true -- Kahlua 沒有 next()
+    for _ in pairs(r) do empty = false break end
+    C.draft.respawn = (not empty) and r or nil
     touched()
 end
 

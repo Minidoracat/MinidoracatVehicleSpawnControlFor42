@@ -5,7 +5,7 @@
 
 ## 1. 範圍
 
-本 MOD 控制「世界生成新車時，各區域生成多少車、生成哪些車型」。不處理已存在於世界上的車（所有權、刪除、傳送屬 `MinidoracatVehicleManagerFor42`）。
+本 MOD 控制「世界生成新車時，各區域生成多少車、生成哪些車型」。不處理已存在於世界上的車（所有權、刪除、傳送屬 `MinidoracatVehicleManagerFor42`）。例外是第 9 節的補車：在玩家很久沒去的停車區**只加車**，不刪、不移、不修已在世界上的車。
 
 ## 2. 需求可行性
 
@@ -179,3 +179,57 @@
 3. ~~`Reset()` 安全性~~：實機驗證可用，採立即生效（2026-09-26，第 7 節）。
 4. ~~3D 預覽~~：放 v1（2026-09-26 定案；一般 MP 客戶端已實機驗證可用）。
 5. ~~面板權限~~：`Capability.SandboxOptions`（2026-09-26 定案）。
+
+## 9. 已探索停車區補車（2026-10-22 定案；預設關閉）
+
+原版只在區塊第一次生成時生車（第 3 節限制 1），長期伺服器上被開走、撞爛、拆掉的車不會回來。這個功能在**玩家很久沒去的停車區**補回原版平均的車數。設計稿（公開頁）：https://share.onorca.dev/a/XEuMtWDh7IY7
+
+### 9.1 使用者裁定（2026-10-22）
+
+1. 放在本 MOD、預設關閉；面板第 3 頁「補車」與設定檔 `respawn` 段都能開。
+2. 每個 64×64 格（伺服器一次載入的單位）補到「這一格原版平均會有的車數」，不是每個車位都補滿。
+3. 多人只補在每位線上玩家 88 格外（客戶端最大載入範圍外，看不到車憑空出現）；單人同一套規則，距離改成 40 格（單人的區塊要走近才載入）。
+4. 門檻用**現實時間**，預設 168 小時（7 天），和日長設定無關。
+5. 剛開啟、紀錄還不滿門檻時，改用引擎記在區域上的「最後有人看到」遊戲時間，照日長換算成現實時間。
+
+### 9.2 設定（`config.json` 的 `respawn`，只寫和預設不同的值）
+
+| 欄位 | 預設 | 範圍 | 意思 |
+|---|---|---|---|
+| `enabled` | `false` | 布林 | 開關 |
+| `unseenHours` | 168 | 1–8760 | 這一格多少現實小時沒人去才補 |
+| `density` | 100 | 10–100 | 補到原版平均的幾成 |
+| `safehouseMargin` | 10 | 0–50 的整數 | 安全屋外圍幾格內不補（另加半個車長） |
+
+### 9.3 運作
+
+1. **停車區索引**（開服一次）：原版 `doMapZones`（`metazoneHandler.lua:82-155`，`OnLoadMapZones` 觸發，`IsoWorld.java:2053`）逐一呼叫 `IsoWorld.registerVehiclesZone`（只收 `Vehicle`／`ParkingStall`，`IsoMetaGrid.java:822-843`）。本 MOD 包住方法表上的這個函式（原函式存成 `MinidoracatVehicleSpawnControl_registerVehiclesZone`，Lua 重載不疊包），記下名稱、位置、大小、`Direction` 屬性（Lua 讀不到 `VehicleZone.dir`，`VehicleZone.java:16-28`）與 `isFaceDirection()`；跳過 z≠0、`TestVehicles`、名稱含 trafficjam、位置大小重複的區（引擎 `checkVehiclesZones` 也刪，`IsoMetaGrid.java:872-913`）。`OnLoadedMapZones`（`IsoWorld.java:2068`）照 `IsoChunk.AddVehicles_OnZone`（`:941-1118`）算出車位：預設朝北、寬 4–6 且高 ≤3 或 ≥6 朝西、有 `Direction` 照它；南北向每 3 格一位、每排 5 格，東西向相反。多邊線停車區由 Java 直接登記、不經過 Lua，不補。
+2. **足跡**（`MVSC_RespawnTrack.lua`）：每秒讀一次線上玩家座標，把附近 88 格內的 64×64 格記成現在（`getTimestamp()`，`LuaManager.java:9287`）；玩家移動 ≥16 格或滿 60 秒才重記，一次最多 16 格。每格記 `last`（最後有人）、`start`（這次來訪開始）、`prev`（這次來訪前最後有人）；600 秒沒人靠近算這次來訪結束。
+3. **觸發**：`LoadChunk`（伺服器載入區塊也觸發，`IsoChunk.doLoadGridsquare`）時，舊區塊（不是 `isNewChunk`）有車位就把它的 64×64 格排進佇列；新區塊引擎剛照原版生過車，不補。專用伺服器等 15 秒再處理（存檔車在背景讀車輛資料庫，`ServerMap.java:809,817-825`、`VehiclesDB2.java:343-348,491-522`，沒有讀完的事件）；佇列放超過 300 秒丟掉；每個 tick 最多處理一格。實測（E2E `respawn-perf`，2026-10-22）：補了車的那個 tick，伺服器 Lua 多花 3–10 ms（一格補 1–2 台）；沒補車時的成本落在兩輪關閉之間的差異內（`Lua - OnTick` 每 frame 約 +0.03–0.05 ms）。
+4. **哪些車位算數**：只算有人去過的車位，下面兩種任一成立就算。（a）引擎記到有人看過這一區：玩家看見格子時引擎更新區域的 `hourLastSeen`（`Meta.java:17-38`），生故事時會把 0 加 1（`IsoChunk.java:1861,3059`），所以 ≥2 才算；原版物資重生用同一組資料（`LootRespawn.java:112-115`）。單人由 `LightingJNI` 記，戶外也算（`LightingJNI.java:1510-1521`）；**專用伺服器只在看見房間裡的格子時更新**（`ServerLOS.java:247` → `IsoGridSquare.CalcVisibility`，room 為 nil 就跳過，javap 確認），戶外停車場要同一區有人看過室內才記得到。（b）足跡在這次來訪之前就有紀錄：開啟後有人來過這一格 88 格內（多人戶外主要靠這一條）。玩家在這區蓋過東西（`haveConstruction`，`Zone.java:245-269`）的車位不補。
+5. **多久沒人**：`quietBefore`＝這次有人來之前，這一格空了多久。時間到了的區塊在第一次評估時就記成補過（車位這次才第一次被看見也一樣），從那一刻重新計時，同一次來訪不會在玩家看過之後再補。開啟後還沒有紀錄的格子只能從開啟那刻算；不滿門檻時改用區域的「最後有人看到」遊戲小時換算（每遊戲小時 `minutesPerDay × 2.5` 現實秒）。
+6. **補到多少**：目標＝`floor(Σ 已探索車位的每格機率 × density/100 + 雜湊(格座標))`。每格機率照引擎：`spawnRate` 依沙盒 CarSpawnRate 換算（2 是 ÷10 取上整、3 是 ÷1.5 取上整、5 是 ×2，1 不生車）再加 1%（`IsoChunk.java:985-996`；預設一般停車格 16 → 17%）。引擎用的是每個車位抽到的車種的 `spawnRate`，這裡用車位所在區的，抽到特殊車或燒毀車時略有差異。雜湊只看座標，同一格目標固定、不會越補越多。現有車數用車位格的 `isVehicleIntersecting()`（`IsoGridSquare.java:9895-9916`）判斷，60 秒內剛放的車也算（引擎要過幾幀才把新車放進區塊的車輛清單，單人區塊陸續載入時同一格會接連補幾次）；已有的車算在目標內，空車位隨機順序補到目標為止。
+7. **放車**：車種用 `VehicleType.getRandomVehicleType`（`VehicleType.java:168-205`，含特殊車、燒毀車、特殊區換一般車），車款依生效表 `spawnChance` 加權、指定塗裝照 `index`（同 `RandomizeModel`，`IsoChunk.java:1317-1358`）。放車用 `addVehicleDebug`（`LuaManager.java:10791-10828`，Lua 唯一會把車寫進區塊與車輛資料庫的入口），`getSqlId() == -1` 算失敗。同一個 tick 內改回引擎生車的樣子：`setZone`、`setVehicleType`、特殊車不上色（`BaseVehicle.java:733-735`）、照沙盒 CarAlarm 擲警報、每個零件 `setRandomCondition`（`VehiclePart.java:225-291`）再跑零件的 create（`Vehicles.lua:114-288`）、依區域車況設鏽。客戶端在 88 格外，第一次收到這台車時車況已經改好。
+8. **安全門**（放之前逐項檢查，任一不過就跳過這個車位）：車身外框（含 ±0.2 弧度與 0.3 格餘量）每一格要是實心地板、不是牆、樹、水，沒有車、人、殭屍、動物、屍體、地上物品或玩家蓋的東西；車心離每位玩家 ≥88 格（單人 40）；不在安全屋（原版 `SafeHouse`，範圍 `[x, x2) × [y, y2)`，`SafeHouse.java:596-653`）外圍 `safehouseMargin + ceil(車長/2)` 格內。
+9. **只加不刪**：補車不刪、不移、不修任何已在世界上的車（`verify_mod.py` 檢查 14 擋這類呼叫）。綁車 MOD 的車不會被動到；Vehicle Manager 只把授權過的車記進帳本（`OwnershipSystem.lua:1040-1055`、`ParkedGuard.lua:264`），新補的車對它是一般無主的世界車。
+
+### 9.4 紀錄與隱私
+
+- 足跡只寫伺服器本機檔 `Zomboid/Lua/MinidoracatVehicleSpawnControl/respawn/<世界名>/tracker-a.txt`、`tracker-b.txt`：每 300 秒輪流寫一份（單人存檔 `OnSave` 時也寫，`GameWindow.java:1020,1047`），檔頭檔尾帶代數，寫到一半當機就讀另一份。最後有人超過「門檻＋1 天」的格子、超過門檻的補車紀錄不寫回去。
+- 檔案格式（純文字，一行一筆）：第 1 行版本 `# MinidoracatVehicleSpawnControl respawn tracker v1`；第 2 行 `gen=代數 world=世界識別碼 enabledAt=開啟時間 savedAt=存檔時間 worldAge=世界年齡（遊戲小時）`；`c 格x 格y last start prev`（64×64 格的座標＝世界座標 ÷ 64；三個時間是 Unix 秒，prev 0＝開啟後這是第一次來訪）；`r 區塊x 區塊y 補車時間`（8×8 區塊）；最後一行 `end gen=代數`，沒有這行就當作沒寫完。沒有玩家名稱、帳號或確切座標。每次存檔整份重寫，不會越存越大。
+- 筆數上限：程式沒有另設上限，由地圖大小與保留時間決定。原版地圖 4065 個 256×256 的 cell＝65,040 個 64×64 格（玩家站在地圖邊緣時會多記外面兩圈，外框算到底 80,896 格），有車位的 8×8 區塊最多 20,125 個（停車區矩形重疊到的區塊數，2026-10-22 由 `objects.lua` 算）。一行最多 43 bytes（`c`）、23 bytes（`r`），所以檔案最大約 3.3–3.9 MB。地圖 MOD 每多一個 cell，最多多 16 行。Java 端 `getFileWriter` 是一般的 `FileOutputStream`（`LuaManager.java:6727-6763`），沒有大小限制。
+- 遊戲內實測（2026-10-22，Kahlua，單人 `--no-debug`，用真的 `T.save`／`T.init`）：5,000 格＋2,000 筆補車紀錄存一次 10 ms、讀 60 ms；20,000＋8,000 存 27 ms、讀 242 ms；整張地圖 65,040＋20,125 存 94 ms、讀 844 ms；80,896＋20,125 存 115 ms、讀 1,431 ms。存檔每 300 秒一次；讀檔只在開服後第一個 tick（兩份都讀，上面的讀檔時間含另一份較小的檔）。
+- 不放全域 ModData：任何登入的玩家都能要走整張全域表（`GlobalModDataRequestPacket.java:15,32`、`GlobalModData.java:171-205`），這份紀錄等於全服玩家的行蹤。全域 ModData `MinidoracatVehicleSpawnControl_Respawn` 只放隨機的世界識別碼。
+- 第一次開啟、或關閉後再開啟：從開啟那刻記（關閉就清空紀錄）。開服讀到的紀錄屬於同名的另一個世界（識別碼不同），或世界在沒有記錄的情況下多跑了超過兩次存檔間隔的遊戲時間（MOD 拿掉一陣子又裝回），也從頭記；這段期間由第 9.1 節第 5 點的換算接手。
+- 面板與 `status.json` 只看統計：補了幾台、跳過原因、最近補在哪一區。伺服器每 10 分鐘在 console 印一行統計。
+
+### 9.5 已知限制
+
+1. 鑰匙機率固定是引擎預設的 70%：`addVehicleDebug` 把車加進世界時就決定了（`BaseVehicle.java:2912`，由 `:7996` 呼叫），區域的 `chanceToSpawnKey` 用不到。
+2. 車心比原版偏約半格、角度多 ±0.2 弧度（`addVehicleDebug` 把車心放在格子西北角並加隨機角度）。
+3. 單人用現實時間：關掉遊戲的時間也算。
+4. 伺服器當機時最多少記 5 分鐘的足跡（存檔間隔）。
+5. 多邊線停車區不補（由 Java 直接登記，Lua 看不到）。原版 Muldraugh 地圖的 9693 個停車區沒有一個是多邊線（`objects.lua` 2026-10-22 查），只有地圖 MOD 可能有。
+6. 只看原版安全屋清單：安全屋 MOD 暫停保護的期間擋不到。
+7. 車身跨進隔壁 64×64 格時：那邊的區塊沒載入就不放（格子是 nil，`R.squareFree` 算擋住）；那邊剛載入、存檔車還沒回到世界的不到 1 秒內（E2E 實測 0.1–0.6 秒），看不到那邊的車，因為只等補車這一格的 15 秒。
+8. 多人：開啟前的來訪只能看引擎的區域紀錄，專用伺服器只在看見室內格子時更新（9.3 第 4 點）。旁邊建築沒人看過室內的戶外停車場，要開啟後有人來過一次，之後滿門檻沒人去才補。

@@ -32,6 +32,8 @@
  13. client 物品名稱用 getItemName — getItemNameFromFullType 只回翻譯表的物品名；原版背包顯示車輛零件時再接上車型，
                           getItemName 照同一規則（LuaManager.java:8745-8763）。BigGasTank1／2／3 因此都顯示「油箱 (大型)」
                           （Economy、UIFor42 2026-10-18）。不拿來顯示或不會出現車輛零件的用法寫進 verify_ignore.txt 並註明查證依據
+ 14. 補車只加車            — MVSC_Respawn*.lua 不得呼叫刪車、移車、修車的 API（permanentlyRemove、removeFromWorld、setX、
+                          repair、VehiclesDB2…）：補車只用 addVehicleDebug 加車，綁車 MOD 的車不能被動到（設計第 9 節）
 
 新增檢查時：同步把對應的坑記進 AGENTS.md 踩坑錄，並依「踩坑進化協議」回流到
 pz-mod-template（見 AGENTS.md）。
@@ -666,6 +668,25 @@ for f in LUA_FILES:
             plain_names.append(f"getItemNameFromFullType in {lua_rel}:{lineno}")
 _t = "client 顯示物品名稱用 getItemName（getItemNameFromFullType 沒有車型）"
 fail(_t, plain_names) if plain_names else ok(_t)
+
+# ---- 14. 補車只加車：不刪、不移、不修已在世界上的車 ----
+# 設計第 9 節與 VLCS 評估報告（2026-10-22）：它的清潔工不分車主與安全屋刪車。補車檔（MVSC_Respawn*.lua）只能用
+# addVehicleDebug 加車，之後只改剛加的那台的車況；出現下列呼叫就擋（車輛 MOD 或綁車 MOD 的車會被動到）。
+_NO_TOUCH = re.compile(r"(?<!\w)(permanentlyRemove|removeFromWorld|removeFromSquare|removeVehicle|VehiclesDB2|setPosition"
+                       r"|setX|setY|teleport\w*|repair|setGeneralPartCondition|sendRemove\w*)\s*\(")
+touch_hits = []
+for f in LUA_FILES:
+    lua_rel = os.path.relpath(f, REPO).replace(os.sep, "/").split("/lua/", 1)[-1]
+    if not re.search(r"/MVSC_Respawn\w*\.lua$", lua_rel):
+        continue
+    with open(f, encoding="utf-8", errors="replace") as fh:
+        src = _LONG_COMMENT.sub(lambda mm: "\n" * mm.group().count("\n"), fh.read())
+    for lineno, line in enumerate(src.split("\n"), 1):
+        mm = _NO_TOUCH.search(line.split("--", 1)[0])
+        if mm:
+            touch_hits.append(f"{lua_rel}:{lineno} 呼叫 {mm.group(1)}()")
+_t = "補車只加車（MVSC_Respawn*.lua 不刪車、不移車、不修車）"
+fail(_t, touch_hits) if touch_hits else ok(_t)
 
 # ---- 總結 ----
 print()

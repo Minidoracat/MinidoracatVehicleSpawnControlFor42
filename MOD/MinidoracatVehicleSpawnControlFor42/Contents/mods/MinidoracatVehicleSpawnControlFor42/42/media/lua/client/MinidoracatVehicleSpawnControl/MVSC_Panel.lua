@@ -1,9 +1,10 @@
--- 「車輛生成控制」主視窗：自繪外殼（MVSC_Window）＋分頁列＋四個視圖＋底部狀態列。
+-- 「車輛生成控制」主視窗：自繪外殼（MVSC_Window）＋分頁列＋五個視圖＋底部狀態列。
 require "ISUI/ISPanel"
 require "ISUI/ISScrollingListBox"
 require "MinidoracatVehicleSpawnControl/MVSC_Widgets"
 require "MinidoracatVehicleSpawnControl/MVSC_VehicleTab"
 require "MinidoracatVehicleSpawnControl/MVSC_ZoneTab"
+require "MinidoracatVehicleSpawnControl/MVSC_RespawnTab"
 
 local M = MinidoracatVehicleSpawnControl
 local C, U, W = M.Client, M.UI, M.W
@@ -255,6 +256,7 @@ function P:createChildren()
     self.tabs = W.tabs(self, 16, self.headerH, self.width - 32, tabsH, {
         { title = T("TabVehicles"), icon = "steeringwheel" },
         { title = T("TabZones"), icon = "layers" },
+        { title = T("TabRespawn"), icon = "carSedan" },
         { title = T("TabSync"), icon = "document" },
         { title = T("TabHistory"), icon = "clipboardCheck" },
     }, self, P.onTab)
@@ -263,10 +265,11 @@ function P:createChildren()
     local vw, vh = self.width - 32, self.height - vy - self.barH
     self.vehicleTab = MVSC_VehicleTab:new(16, vy, vw, vh)
     self.zoneTab = MVSC_ZoneTab:new(16, vy, vw, vh)
+    self.respawnTab = MVSC_RespawnTab:new(16, vy, vw, vh)
     self.syncView = MVSC_SyncView:new(16, vy, vw, vh)
     self.historyView = MVSC_HistoryView:new(16, vy, vw, vh)
     self.zoneTab.panel = self
-    self.views = { self.vehicleTab, self.zoneTab, self.syncView, self.historyView }
+    self.views = { self.vehicleTab, self.zoneTab, self.respawnTab, self.syncView, self.historyView }
     for i, v in ipairs(self.views) do
         v:initialise()
         self:addChild(v)
@@ -305,6 +308,7 @@ function P:onEvent(event, args)
     if event == "loaded" then
         self.vehicleTab:refresh()
         self.zoneTab:refresh()
+        self.respawnTab:refresh()
         self.syncView:refresh()
         self.historyView:refresh()
     elseif event == "draft" then

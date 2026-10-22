@@ -642,6 +642,323 @@ Cl.setParam("police", "chanceToSpawnSpecial", 0)
 check(Cl.draft.zones.police.chanceToSpawnSpecial == nil, "拉回實際會套用的 0 就移除覆寫，不留多餘的變更")
 Cl.discard()
 
+print("情境二十四：補車設定（預設關閉、範圍檢查、只寫和預設不同的值）")
+local rctx = { zones = S.base.zones, aliasOf = S.base.aliasOf, scripts = S.info.scripts }
+local rcfg = M.validate({ respawn = { enabled = true, unseenHours = 72 } }, rctx)
+check(rcfg and rcfg.respawn.enabled == true and rcfg.respawn.unseenHours == 72 and rcfg.respawn.density == 100
+    and rcfg.respawn.safehouseMargin == 10, "開啟並改門檻，其餘用預設")
+check(M.validate({}, rctx).respawn.enabled == false, "沒寫這段＝關閉")
+local _, rerrs = M.validate({ respawn = { unseenHours = 0, density = 5, safehouseMargin = 2.5, enabled = "yes" } }, rctx)
+check(#rerrs == 4, "門檻 0、比例 5、外圍不是整數、開關不是布林都整份拒絕")
+check(M.toRaw(M.validate({}, rctx)).respawn == nil, "沒寫 respawn 時轉回原格式也沒有這段")
+local rch = M.changes({}, { respawn = { enabled = true, unseenHours = 72 } })
+check(#rch == 2 and rch[1].k == "respawn" and rch[2].k == "respawn", "變更紀錄列出補車開關與門檻")
+check(M.stallChance(16, 4) == 0.17 and M.stallChance(16, 5) == 0.33 and M.stallChance(16, 3) == 0.12
+    and M.stallChance(16, 2) == 0.03 and M.stallChance(16, 1) == 0, "每格機率照引擎公式：一般 17%、高 33%、低 12%、極低 3%、無 0")
+Cl.request()
+Cl.discard()
+Cl.setRespawn("enabled", true)
+check(#Cl.changes() == 1, "面板開啟補車是一項變更")
+Cl.setRespawn("enabled", false)
+check(Cl.draft.respawn == nil and #Cl.changes() == 0, "關回預設就移除覆寫，草稿保持最小")
+Cl.setRespawn("unseenHours", 99999)
+check(Cl.respawnOf("unseenHours") == 8760, "門檻夾在 1–8760")
+Cl.discard()
+
+-- ===== 補車的假引擎（只在這幾個情境用；前面的情境不載入 MVSC_Respawn）=====
+function getTimestamp() return math.floor(nowMs / 1000) end
+function getWorld() return { getWorld = function() return "harness world" end } end
+local MD = {}
+ModData = { getOrCreate = function(key) MD[key] = MD[key] or {}; return MD[key] end }
+local worldAge = 1000
+function getGameTime() return { getWorldAgeHours = function() return worldAge end, getMinutesPerDay = function() return 90 end } end
+function ZombRandFloat(a) return a end
+function instanceof(o, cls) return type(o) == "table" and o._class == cls end
+IsoDirections = { N = "N", S = "S", W = "W", E = "E" }
+SandboxVars = { CarSpawnRate = 4, CarAlarm = 4, EnableVehicles = true }
+local SAFEHOUSES = {}
+SafeHouse = { getSafehouseList = function() return javaList(SAFEHOUSES) end }
+IsoWorld = { class = {} }
+__classmetatables = { [IsoWorld.class] = { __index = { registerVehiclesZone = function(_, _, kind, _, _, _, _, _, props)
+    if kind ~= "Vehicle" and kind ~= "ParkingStall" then return nil end
+    return { isFaceDirection = function() return props ~= nil and props.FaceDirection == true end }
+end } } }
+for _, sc in ipairs(SCRIPTS) do sc.getExtents = function() return vec(2, 1.5, 5) end end
+local TYPES = {}
+local function vtype(key) TYPES[key] = TYPES[key] or { key = key }; return TYPES[key] end
+VehicleType.getTypeFromName = function(key) return VehicleZoneDistribution[key] and vtype(key) or nil end
+VehicleType.getRandomVehicleType = function(name)
+    local k = string.lower(name)
+    return VehicleZoneDistribution[k] and vtype(k) or nil
+end
+VehicleType.hasTypeForZone = function(name) return VehicleZoneDistribution[string.lower(name)] ~= nil end
+local SQ, OCC, PLACED = {}, {}, {}
+local REJECT = false
+local LATE = false -- 引擎要過幾幀才把剛放的車放進區塊的車輛清單（isVehicleIntersecting 暫時看不到；E2E respawn SP 實見）
+local LOTZONE = { since = 500, cons = false }
+LOTZONE.getHoursSinceLastSeen = function() return LOTZONE.since end
+LOTZONE.haveCons = function() return LOTZONE.cons end
+local function fsq(x, y)
+    local s = { flags = {} }
+    s.getX = function() return x end
+    s.getY = function() return y end
+    s.isSolidFloor = function() return true end
+    s.isSolid = function() return false end
+    s.isSolidTrans = function() return false end
+    s.HasTree = function() return false end
+    s.isWaterSquare = function() return false end
+    s.isVehicleIntersecting = function() return OCC[x .. "," .. y] == true end
+    s.getMovingObjects = function() return { isEmpty = function() return not s.flags.zombie end } end
+    s.getDeadBody = function() return nil end
+    s.getWorldObjects = function() return { isEmpty = function() return not s.flags.item end } end
+    s.getObjects = function() return javaList(s.flags.built and { { _class = "IsoThumpable" } } or {}) end
+    s.getZone = function() return LOTZONE end
+    return s
+end
+for x = 1020, 1070 do
+    for y = 1020, 1045 do SQ[x .. "," .. y] = fsq(x, y) end
+end
+function getCell() return { getGridSquare = function(_, x, y, z) return z == 0 and SQ[x .. "," .. y] or nil end } end
+local function fchunk(wx, wy, isNew)
+    return { isNewChunk = function() return isNew == true end,
+        getGridSquare = function(_, x, y, z) return z == 0 and SQ[(wx * 8 + x) .. "," .. (wy * 8 + y)] or nil end }
+end
+-- addVehicleDebug：車心在格子西北角；佔用車心周圍的格子（之後 isVehicleIntersecting 看得到）
+function addVehicleDebug(script, dir, skin, sq)
+    local part = { getInventoryItem = function() return nil end,
+        getLuaFunction = function(_, n) return n == "create" and "Vehicles.Create.Test" or nil end }
+    part.setRandomCondition = function() part.randomized = true end
+    local v = { script = script, dir = dir, skin = skin, x = sq.getX(), y = sq.getY(), part = part }
+    v.getSqlId = function() return REJECT and -1 or 7 end
+    v.setZone = function(_, z) v.zone = z end
+    v.setVehicleType = function(_, t) v.vtype = t end
+    v.setDoColor = function(_, b) v.doColor = b end
+    v.setColorHSV = function(_, h, s, val) v.hsv = { h, s, val } end
+    v.setAlarmed = function(_, b) v.alarmed = b end
+    v.getPartCount = function() return 1 end
+    v.getPartByIndex = function() return part end
+    v.getScriptName = function() return script end
+    v.setRust = function(_, r) v.rust = r end
+    if not REJECT then
+        if not LATE then
+            for x = v.x - 1, v.x do
+                for y = v.y - 2, v.y + 2 do OCC[x .. "," .. y] = true end
+            end
+        end
+        PLACED[#PLACED + 1] = v
+    end
+    return v
+end
+Vehicles = { Create = { Test = function(_, part) part.created = true end } }
+ME.px, ME.py = 5000, 5000
+ME.getX = function() return ME.px end
+ME.getY = function() return ME.py end
+require "MinidoracatVehicleSpawnControl/MVSC_Respawn"
+local R, T = M.Respawn, M.RespawnTrack
+fire("OnServerStarted")
+local H = 3600
+
+print("情境二十五：玩家足跡（現實時間）與「這次有人來之前空了多久」")
+T.init()
+check(T.dir == "MinidoracatVehicleSpawnControl/respawn/harness_world/", "紀錄放在世界名子資料夾（不能當檔名的字元換成底線）")
+local t0 = getTimestamp()
+T.setEnabled(true, t0)
+ME.px, ME.py = 10000, 10000
+T.tick(t0)
+local home = T.key(math.floor(10000 / 64), math.floor(10000 / 64))
+check(T.cells[home] and T.cells[home].last == t0 and T.count() == 16, "玩家附近 88 格內的 64×64 格記成現在，一次最多 16 格")
+check(T.cells[T.key(math.floor(10200 / 64), math.floor(10000 / 64))] == nil, "88 格外不記")
+local homeChunk = T.key(1250, 1250)
+ME.px = 20000
+T.tick(t0 + 61)
+local t1 = t0 + 8 * 24 * H
+ME.px = 10000
+T.tick(t1)
+local q1, fe1 = T.quietBefore(home, homeChunk, t1)
+check(q1 == t1 - t0 and fe1 == false, "離開 8 天後回來：從這次來的那刻往前算，空了 8 天")
+T.tick(t1 + 300)
+check(T.quietBefore(home, homeChunk, t1 + 300) == t1 - t0, "同一次來訪 5 分鐘後還是看來訪前（不是看最後一次）")
+T.markRefilled(homeChunk, t1 + 300)
+check(T.quietBefore(home, homeChunk, t1 + 400) < 0, "補過之後，同一次來訪不會再符合")
+check(T.quietBefore(home, T.key(1251, 1250), t1 + 400) == t1 - t0, "同一格的其他區塊照常（還沒補過）")
+ME.px = 20000
+T.tick(t1 + 700)
+check(T.quietBefore(home, T.key(1251, 1250), t1 + 700 + H) == 400 + H, "最後一次有人是 1 小時多前（已離開）：只空了 1 小時多，不到門檻")
+local q2, fe2 = T.quietBefore(T.key(1, 1), T.key(8, 8), t1)
+check(fe2 == true and q2 == t1 - t0, "開啟後沒人去過的格子：只能從開啟那刻算")
+
+print("情境二十六：紀錄只寫伺服器本機檔，兩份輪流寫，寫到一半讀另一份")
+T.save(t1 + 800)
+local cells1 = T.count()
+T.dir, T.enabledAt, T.cells, T.refilled = nil, nil, {}, {}
+T.init()
+check(T.enabledAt == t0 and T.count() == cells1 and T.refilled[homeChunk] == t1 + 300, "重開後讀回開啟時間、足跡與補過的區塊")
+local mdKeys = {}
+for k in pairs(MD[T.MODDATA]) do mdKeys[#mdKeys + 1] = k end
+check(#mdKeys == 1 and mdKeys[1] == "worldId", "全域 ModData 只有世界識別碼，沒有玩家足跡")
+T.save(t1 + 900)
+local newest = T.dir .. (T.gen % 2 == 0 and "tracker-a.txt" or "tracker-b.txt")
+check(FS[newest] ~= nil and FS[T.dir .. (T.gen % 2 == 0 and "tracker-b.txt" or "tracker-a.txt")] ~= nil, "兩份檔案都在")
+local gen2 = T.gen
+FS[newest] = string.gsub(FS[newest], "end gen=%d+\n$", "")
+T.dir, T.enabledAt, T.cells = nil, nil, {}
+T.init()
+check(T.enabledAt == t0 and T.gen == gen2 - 1, "最新一份沒有結尾行（寫到一半當機）就讀上一份")
+local realId = MD[T.MODDATA].worldId
+MD[T.MODDATA].worldId = "another-world"
+T.dir, T.enabledAt, T.cells = nil, nil, {}
+T.init()
+check(T.enabledAt == nil and T.count() == 0, "同名的另一個世界不沿用紀錄")
+MD[T.MODDATA].worldId = realId
+worldAge = worldAge + 10
+T.dir, T.enabledAt, T.cells = nil, nil, {}
+T.init()
+check(T.enabledAt == nil, "世界在沒有記錄的情況下跑了 10 遊戲小時：從頭記")
+worldAge = worldAge - 10
+T.dir, T.enabledAt, T.cells = nil, nil, {}
+T.init()
+check(T.enabledAt == t0, "世界時間沒有多跑時照常讀回")
+
+print("情境二十七：車位照引擎算法（方向、步距、重複區、塞車區、2 樓）")
+local reg = __classmetatables[IsoWorld.class].__index.registerVehiclesZone
+local W0 = {}
+reg(W0, "", "ParkingStall", 100, 200, 0, 9, 5, nil)
+reg(W0, "parkingstall", "ParkingStall", 100, 300, 0, 5, 2, nil)
+reg(W0, "police", "ParkingStall", 200, 200, 0, 5, 12, { Direction = "E", FaceDirection = true })
+reg(W0, "", "ParkingStall", 100, 200, 0, 9, 5, nil)
+reg(W0, "TrafficJamW", "ParkingStall", 0, 0, 0, 30, 30, nil)
+reg(W0, "", "ParkingStall", 300, 300, 1, 9, 5, nil)
+reg(W0, "Forest", "Forest", 400, 400, 0, 9, 5, nil)
+reg(W0, "parkingstall", "ParkingStall", 1030, 1030, 0, 30, 5, nil)
+fire("OnLoadedMapZones")
+check(#R.zones == 4 and R.indexOk == true, "重複區、塞車區、2 樓、非停車區都不收")
+check(R.zones[1].dir == "N" and R.zones[2].dir == "W" and R.zones[3].dir == "E" and R.zones[3].face == true, "預設朝北；寬 5 高 2 朝西；Direction 屬性照用")
+local function stallsIn(ck)
+    local out, flat = {}, R.byChunk[ck] or {}
+    for i = 1, #flat, 3 do out[#out + 1] = flat[i + 1] .. "," .. flat[i + 2] end
+    return table.concat(out, " ")
+end
+check(stallsIn(T.key(12, 25)) == "101,202" and stallsIn(T.key(13, 25)) == "104,202 107,202", "朝北：每 3 格一位，從原點加 1.5 起算")
+check(stallsIn(T.key(12, 37)) == "102,301", "朝西：x 從原點加 2.5、y 從原點加 1.5")
+check(stallsIn(T.key(25, 25)) == "202,201 202,204 202,207" and stallsIn(T.key(25, 26)) == "202,210", "朝東：每排 3 格")
+check(R.stallCount == 3 + 1 + 4 + 10, "四個區共 18 個車位")
+
+print("情境二十八：補到這一格原版的平均車數，不是補滿；只補空位、不靠近玩家")
+local LOT_BLOCK = T.key(16, 16)
+writeConfig({ respawn = { enabled = true } })
+advance(61000)
+advance(1000)
+check(R.on == true and T.enabledAt ~= nil, "設定檔開啟後補車開始執行")
+ME.px, ME.py = 5000, 5000
+nowMs = nowMs + 8 * 24 * H * 1000
+fire("LoadChunk", fchunk(129, 129))
+advance(5000)
+check(#PLACED == 0, "區塊載入後先等 15 秒（存檔車還在讀資料庫）")
+advance(11000)
+local target = R.target(10 * M.stallChance(16, 4), 100, LOT_BLOCK)
+check(#PLACED == target and target >= 1 and target <= 2, "10 個空車位、每格 17%：補 " .. target .. " 台（原版平均約 1.7 台），不是補滿")
+local v1 = PLACED[1]
+check(v1 and v1.vtype == "parkingstall" and v1.zone == "parkingstall" and v1.part.randomized and v1.part.created
+    and v1.rust == 0, "補上的車照區域參數重抽零件車況、跑零件的 create")
+fire("LoadChunk", fchunk(129, 129))
+advance(16000)
+check(#PLACED == target, "同一次來訪重新載入區塊不會再補")
+local function resetLot()
+    PLACED, OCC, T.refilled = {}, {}, {}
+    R.fresh, R.justPlaced = {}, {}
+    R.window = { start = getTimestamp(), placed = 0, blocks = 0, near = 0, blocked = 0, protected = 0, rejected = 0 }
+end
+VehicleZoneDistribution.parkingstall.spawnRate = 99 -- 每格 100%：方便看每一道門
+resetLot()
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 10, "每格 100% 時 10 個空位都補")
+resetLot()
+OCC["1031,1032"], OCC["1034,1032"] = true, true
+S.cfg.respawn.density = 50
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(R.target(10, 50, LOT_BLOCK) == 5 and #PLACED == 3, "比例 50%（目標 5 台）、已經有 2 台車：只補 3 台，已有的車算在內")
+S.cfg.respawn.density = 100
+resetLot()
+S.cfg.respawn.density = 50
+LATE = true
+local hidden = {}
+for x = 1040, 1058 do
+    local k = x .. ",1032"
+    if SQ[k] then hidden[k], SQ[k] = SQ[k], nil end
+end
+R.fillBlock(LOT_BLOCK, getTimestamp()) -- 單人先載入西邊 3 個車位所在的區塊
+for k, s in pairs(hidden) do SQ[k] = s end
+R.fillBlock(LOT_BLOCK, getTimestamp()) -- 其餘區塊下一幀才載入，剛放的車還看不到
+LATE = false
+check(#PLACED == R.target(10, 50, LOT_BLOCK), "區塊分兩次載入、剛放的車還看不到：合計仍只補到目標 "
+    .. R.target(10, 50, LOT_BLOCK) .. " 台（實際 " .. #PLACED .. "）")
+S.cfg.respawn.density = 100
+resetLot()
+SQ["1033,1033"].flags.item = true
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 8 and R.window.blocked == 2, "地上有物品的車位不放（車身含旋轉餘量，跨到相鄰兩格的範圍）")
+SQ["1033,1033"].flags.item = nil
+resetLot()
+ME.px, ME.py = 1045, 1110
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 0 and R.window.near == 10, "玩家 88 格內一台都不放")
+ME.px, ME.py = 5000, 5000
+resetLot()
+SAFEHOUSES[1] = { getX = function() return 1000 end, getY = function() return 1000 end, getX2 = function() return 1030 end, getY2 = function() return 1030 end }
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 6 and R.window.protected == 4, "安全屋外圍 10 格加半個車身內不放（車心 x < 1043 的 4 格）")
+SAFEHOUSES[1] = nil
+resetLot()
+LOTZONE.cons = true
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 0 and R.window.protected == 10, "玩家在這區蓋過東西就不補")
+LOTZONE.cons = false
+resetLot()
+LOTZONE.since = worldAge - 1
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 0, "沒人去過的區（只有引擎生故事時的標記）不補")
+LOTZONE.since = 500
+resetLot()
+LOTZONE.since = worldAge - 1 -- 專用伺服器只在看見室內格子時更新區域（IsoGridSquare.CalcVisibility），戶外停車場常常沒記到
+local seenAt = getTimestamp() - math.floor(7.5 * 24 * H) -- 足跡：開啟後、7.5 天前有人來過這一格
+T.cells[LOT_BLOCK] = { last = seenAt, start = seenAt - H }
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 10, "引擎沒記到（多人只認看過室內），足跡有開啟後的來訪紀錄：照補")
+T.cells[LOT_BLOCK] = nil
+LOTZONE.since = 500
+resetLot()
+LOTZONE.since = worldAge - 1 -- 這次來訪前沒人看過
+R.fillBlock(LOT_BLOCK, getTimestamp())
+LOTZONE.since = 0 -- 玩家這次走進去看到了
+R.fillBlock(LOT_BLOCK, getTimestamp()) -- 同一次來訪，區塊又排進佇列一次
+check(#PLACED == 0, "這次來訪才第一次看見的區：同一次來訪再載入也不補")
+LOTZONE.since = 500
+resetLot()
+for wx = 128, 132 do R.fresh[T.key(wx, 129)] = getTimestamp() end
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 0, "這次才第一次生成的區塊交給引擎，不補")
+resetLot()
+REJECT = true
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 0 and R.window.rejected == 10, "引擎沒把車放進世界（sqlId -1）不算數、不改車況")
+REJECT = false
+resetLot()
+T.enabledAt = getTimestamp() - H
+LOTZONE.since = 200
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 0, "剛開啟 1 小時、引擎記錄 200 遊戲小時前有人（約現實 12.5 小時）：不到 168 小時")
+resetLot()
+LOTZONE.since, worldAge = 3000, 5000
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 10, "引擎記錄 3000 遊戲小時前有人（約現實 187 小時）：開啟當天就補")
+worldAge = 1000
+LOTZONE.since = 500
+VehicleZoneDistribution.parkingstall.spawnRate = nil
+writeConfig({})
+advance(61000)
+advance(1000)
+check(R.on == false and T.enabledAt == nil and T.count() == 0, "關閉後停止記錄並清掉足跡")
+
 print()
 if failures > 0 then
     print(failures .. " 項失敗")
