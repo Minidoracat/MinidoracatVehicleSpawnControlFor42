@@ -118,12 +118,14 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [*] [b]Offline edits[/b]: edits made to the config file while the server was offline are listed at the next startup.
 [/list]
 === 🧰 Parking lot refill (off by default)
-Vanilla only spawns vehicles the first time an area generates: once players drive cars away, wreck them or strip them, that spot stays empty. With refill on, parking lots that players have visited but nobody has been near for a long time slowly get back the vanilla average number of vehicles.
+{{img:07-parking-refill-en.jpg}}
+Vanilla only spawns vehicles the first time an area generates: once players drive cars away, wreck them or strip them, that spot stays empty. With refill on, parking lots, driveways and other vehicle spots that players have visited but nobody has been near for a long time slowly get back the vanilla average number of vehicles.
 [list]
 [*] [b]Turning it on[/b]: on panel page 3 "Refill", press "On" and then "Apply changes", or add respawn to config.json (see "config.json fields"). No server restart needed.
 [*] [b]How long nobody must be there[/b]: 168 hours (7 days) by default, in real time, whatever the day length is; time with the server shut down or paused while empty also counts. A lot is refilled only if it had been empty that long before players came near this time, and only once per visit.
 [*] [b]How many vehicles[/b]: each block (64×64 tiles) is filled up to the vanilla average, counting the cars already there, so not every spot gets a car. For example, at the default sandbox Vehicle Spawn Rate a regular parking spot has a car about 17% of the time, so 10 spots get 1 or 2 cars. "Refill up to this share" can be set from 10% to 100% of the vanilla average.
-[*] [b]Only places someone has visited[/b]: lots nobody ever saw still have their original cars, so they are skipped. "Visited" means the game's own record for that area, or a player coming near after refill was turned on.
+[*] [b]Which spots[/b]: every place where the game parks vehicles in stalls, such as parking lots, house driveways, police and fire stations, farms, junkyards and company lots, each drawing from that zone's spawn list. Traffic jams and crash scenes on roads are not stall spawns and are never refilled.
+[*] [b]Only places someone has visited[/b]: spots nobody ever saw still have their original cars, so they are skipped. "Visited" means the game's own record for that area, or a player coming near after refill was turned on.
 [*] [b]Where it never refills[/b]: anywhere players can see (within about 88 tiles of any player in multiplayer, 40 in singleplayer), around safehouses (10 tiles by default, plus half the car's length), where players have built something, and spots blocked by a vehicle, item, corpse, wall, tree or water.
 [*] [b]What gets added[/b]: vehicle types are drawn from that zone's spawn list (burnt and special vehicles included); condition, rust, fuel and alarms follow vanilla odds.
 [*] [b]It only adds vehicles[/b]: no vehicle already in the world is deleted, moved or repaired; vehicles managed by ownership or vehicle-claim mods are untouched, and the new cars are ordinary unowned vehicles to them.
