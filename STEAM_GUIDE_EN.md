@@ -130,7 +130,9 @@ Vanilla only spawns vehicles the first time an area generates: once players driv
 [*] [b]What gets added[/b]: vehicle types are drawn from that zone's spawn list (burnt and special vehicles included); condition, rust, fuel and alarms follow vanilla odds.
 [*] [b]It only adds vehicles[/b]: no vehicle already in the world is deleted, moved or repaired; vehicles managed by ownership or vehicle-claim mods are untouched, and the new cars are ordinary unowned vehicles to them.
 [*] [b]Right after turning it on[/b]: recording starts at that moment; places without enough record yet use the game's own "last seen" game time, converted with the day length, so lots long left alone can be refilled on day one. On a multiplayer server the game only records that time when a player sees inside a building, so an outdoor lot whose nearby buildings nobody looked into has no record: it is refilled only after someone visits it once with refill on and then nobody comes near for the threshold. Turning refill off clears the record, and turning it back on starts over.
-[*] [b]Player footprints stay on the server[/b]: the record lives in a folder on the server and players cannot request it; the panel only shows totals (vehicles added, where the latest refills were, why spots were skipped last time).
+[*] [b]Player footprints stay on the server[/b]: the record lives in a folder on the server and players cannot request it; the panel only shows totals (vehicles added since the server started, where the latest refills were, why spots were skipped last time).
+[*] [b]Checking that it works[/b]: the panel's totals are also in the respawn section of status.json, updated every 10 minutes; the server log prints one line per refilled block, "respawn: +count at x,y zone (block target T, had H)", plus a total every 10 minutes when anything was added or skipped.
+[*] [b]Server load[/b]: blocks are checked only when players load a place with vehicle spots, at most one block per tick; player positions are read once a second and the record is saved every 5 minutes.
 [/list]
 === ⚙️ Permissions
 [list]
@@ -150,7 +152,7 @@ The files live in the Zomboid folder under [b]Lua/MinidoracatVehicleSpawnControl
 [tr][th]File[/th][th]What it is[/th][/tr]
 [tr][td]config.json[/td][td]The settings you edit; it only records what differs from the original[/td][/tr]
 [tr][td]catalog.json (read-only)[/td][td]Every vehicle, its source mod, the zones it appears in and its actual share. Copy vehicle and zone names from here[/td][/tr]
-[tr][td]status.json (read-only)[/td][td]Whether the last check succeeded, plus errors, warnings and newly detected vehicles[/td][/tr]
+[tr][td]status.json (read-only)[/td][td]Whether the last check succeeded, plus errors, warnings, newly detected vehicles and refill totals[/td][/tr]
 [tr][td]history.json, backups/[/td][td]The change history and backups of the last 10 applied configs[/td][/tr]
 [tr][td]respawn/<world name>/[/td][td]The refill record of where players have been (only which blocks were visited and when); do not edit it[/td][/tr]
 [tr][td]state.json[/td][td]Internal state; do not edit it[/td][/tr]
