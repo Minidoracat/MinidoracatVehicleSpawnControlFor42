@@ -923,6 +923,13 @@ R.fillBlock(LOT_BLOCK, getTimestamp())
 check(#PLACED == 8 and R.window.blocked == 2, "地上有物品的車位不放（車身含旋轉餘量，跨到相鄰兩格的範圍）")
 SQ["1033,1033"].flags.item = nil
 resetLot()
+for _, sc in ipairs(SCRIPTS) do sc.com = vec(0, 0, 0.9) end -- 重心偏 0.9 格：車框南北各多查一格（y 1029 在停車區北邊外面）
+SQ["1033,1029"].flags.item = true
+R.fillBlock(LOT_BLOCK, getTimestamp())
+check(#PLACED == 8 and R.window.blocked == 2, "補車的車框也把重心偏移算進去（偏 0.9 格：車框多出的那一格有物品，兩個車位不放）")
+for _, sc in ipairs(SCRIPTS) do sc.com = vec(0, 0, 0) end
+SQ["1033,1029"].flags.item = nil
+resetLot()
 ME.px, ME.py = 1045, 1110
 R.fillBlock(LOT_BLOCK, getTimestamp())
 check(#PLACED == 0 and R.window.near == 10, "玩家 88 格內一台都不放")

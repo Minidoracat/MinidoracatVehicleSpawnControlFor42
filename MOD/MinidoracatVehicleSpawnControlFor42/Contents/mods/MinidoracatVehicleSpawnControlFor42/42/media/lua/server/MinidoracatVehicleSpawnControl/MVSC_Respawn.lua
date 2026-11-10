@@ -301,7 +301,9 @@ function R.placeAt(c, cfg)
     local cx, cy = math.floor(vx + 0.5), math.floor(vy + 0.5)
     if not R.farFromPlayers(cx, cy) then return "near" end
     if R.nearSafehouse(cx, cy, cfg.safehouseMargin + math.ceil(len / 2)) then return "protected" end
-    local x0, y0, x1, y1 = footprint(cx, cy, dir, len, wid)
+    -- 車框把重心偏移算進去（同 R.spawnNear）；車心與安全屋距離照引擎用原本的車長
+    local com = vs:getCenterOfMassOffset()
+    local x0, y0, x1, y1 = footprint(cx, cy, dir, len + 2 * math.abs(com:z()), wid + 2 * math.abs(com:x()))
     local cell = getCell()
     for x = x0, x1 do
         for y = y0, y1 do
