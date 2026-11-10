@@ -1,8 +1,8 @@
 -- MinidoracatVehicleSpawnControl 伺服器端網路命令（管理面板）。
 --   權限：每個命令都在伺服器重新檢查 Capability.SandboxOptions（原版「沙盒設定」同一權限，ISAdminPanelUI.lua:226；
---   預設 moderator／admin 有，Roles.java:446-469）。UI 的 enable 只是方便，不是防線。
+--   預設 moderator／admin 有，Roles.java:446-469）。UI 的 enable 只是方便，不是防線。生成到身邊（spawn）另查 ManipulateVehicle。
 --   傳輸：目錄與區域分批送（單一命令走 1 MB 緩衝，UdpConnection.java:39-44）。
---   單人：sendServerCommand 在非伺服器端是 no-op（LuaManager.java:8966-8970），所以直接呼叫 client 的處理函式。
+--   單人：sendServerCommand 在非伺服器端是 no-op（LuaManager.java:8902-8906），所以直接呼叫 client 的處理函式。
 if isClient() then return end
 require "MinidoracatVehicleSpawnControl/MVSC_Server"
 
@@ -19,6 +19,14 @@ function N.canAdmin(player)
     if not isServer() then return true end -- 單人：本機玩家就是擁有者（入口在地上按右鍵的選單）
     local role = player and player:getRole()
     return role ~= nil and role:hasCapability(Capability.SandboxOptions)
+end
+
+-- 生成到身邊另要 ManipulateVehicle，同原版 /addvehicle（AddVehicleCommand.java:40-42）；SandboxOptions 已在 N.onClientCommand 查過。
+-- 預設 moderator、admin 兩項都有（Roles.java:446-469），自訂角色可能只給其中一項
+function N.canSpawn(player)
+    if not isServer() then return true end
+    local role = player and player:getRole()
+    return role ~= nil and role:hasCapability(Capability.ManipulateVehicle)
 end
 
 function N.reply(player, cmd, args)
@@ -106,6 +114,33 @@ N.handlers.restore = function(player, args)
     N.reply(player, "applyResult", { ok = ok, errors = errors, revision = S.state.revision })
 end
 
+-- 車況同原版 /addvehicle（AddVehicleCommand.java:111-115）：鑰匙插在點火開關、零件全修好、駕駛座車門解鎖
+local function readyToDrive(v)
+    v:setCurrentKey(v:createVehicleKey())
+    v:repair()
+    local door = v:getPassengerDoor(0)
+    if door and door:getDoor() then door:getDoor():setLocked(false) end
+end
+
+-- args = { full = 車款全名, skin = 塗裝序號 }：都是客戶端送來的，伺服器自己驗。只寫 server-console，不進變更紀錄（那裡只記設定修訂）
+N.handlers.spawn = function(player, args)
+    local full = tostring(args.full)
+    local reply = { ok = false, full = full, radius = M.Respawn.SPAWN_RADIUS }
+    if not N.canSpawn(player) then
+        reply.reason = "denied"
+    elseif not S.info.catalog[full] then -- 目錄不含預覽代理車種
+        reply.reason = "unknown"
+    else
+        local count = ScriptManager.instance:getVehicle(full):getSkinCount()
+        local skin = math.max(0, math.min(math.floor(tonumber(args.skin) or 0), count - 1)) -- VehicleScript.getSkin 不檢查範圍
+        local v, reason = M.Respawn.spawnNear(player, full, skin)
+        if v then readyToDrive(v) end
+        reply.ok, reply.reason = v ~= nil, reason
+    end
+    print(M.LOG .. "spawn " .. full .. " by " .. username(player) .. ": " .. (reply.reason or "placed"))
+    N.reply(player, "spawnResult", reply)
+end
+
 function N.onClientCommand(module, command, player, args)
     if module ~= M.NET_MODULE then return end
     local fn = N.handlers[command]
@@ -124,7 +159,7 @@ end
 
 -- 任何來源套用或拒絕後，通知線上有權限的人（面板開著就會提示重新載入）
 -- 開服套用時伺服器網路還沒啟動：OnInitGlobalModData 早於 GameServer.startServer 建立 udpEngine，
--- 這時 getOnlinePlayers 會 NPE（GameServer.java:3575）；也沒有人在線，直接略過。
+-- 這時 getOnlinePlayers 會 NPE（GameServer.java:3585）；也沒有人在線，直接略過。
 S.notify = function(ok, source, errors)
     if source == "boot" then return end
     local args = { ok = ok, source = source, revision = S.state and S.state.revision or 0, errors = errors }

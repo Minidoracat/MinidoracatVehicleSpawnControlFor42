@@ -239,7 +239,7 @@ local P = MVSC_Panel
 
 function P:new()
     local sw, sh = getCore():getScreenWidth(), getCore():getScreenHeight()
-    -- 依字級等比放大：自動字級在 1440p 以上會變大（Core.java:3248-3271），固定尺寸會把按鈕與說明截斷
+    -- 依字級等比放大：自動字級在 1440p 以上會變大（Core.java:2840-2863），固定尺寸會把按鈕與說明截斷
     local k = math.max(1, U.fontH() / 16)
     local w = math.min(sw - 40, math.floor(1280 * k))
     local h = math.min(sh - 40, math.floor(780 * k))
@@ -304,6 +304,14 @@ function P:showTab(index)
     self:onTab(index)
 end
 
+-- 底部狀態列的暫時提示；bad 用錯誤色與叉號
+function P:say(text, ms, bad)
+    self.flash, self.flashUntil, self.flashBad = text, getTimestampMs() + ms, bad == true
+end
+
+-- 生成到身邊失敗的原因（N.handlers.spawn、R.spawnNear）→ 翻譯鍵；其餘（unknown、rejected）用 SpawnFailed
+local SPAWN_TEXT = { noroom = "SpawnNoRoom", upstairs = "SpawnUpstairs", settling = "SpawnSettling", denied = "SpawnDenied" }
+
 function P:onEvent(event, args)
     if event == "loaded" then
         self.vehicleTab:refresh()
@@ -323,12 +331,14 @@ function P:onEvent(event, args)
         elseif not args.ok then
             W.dialog({ title = T("ApplyFailed"), message = "", lines = args.errors or {}, cancel = false })
         else
-            self.flash = T("Applied", tostring(args.revision))
-            self.flashUntil = getTimestampMs() + 6000
+            self:say(T("Applied", tostring(args.revision)), 6000)
         end
     elseif event == "denied" then
-        self.flash = T("Denied")
-        self.flashUntil = getTimestampMs() + 8000
+        self:say(T("Denied"), 8000, true)
+    elseif event == "spawnResult" then
+        local v = args.ok and C.data and C.data.catalog[args.full]
+        if args.ok then self:say(T("SpawnDone", v and v.display or tostring(args.full)), 8000)
+        else self:say(T(SPAWN_TEXT[args.reason] or "SpawnFailed", tostring(args.radius)), 8000, true) end
     end
 end
 
@@ -376,7 +386,8 @@ function P:prerender()
     local FH = U.fontH()
     local y = by + math.floor((self.barH - FH) / 2)
     local text, token, icon
-    if self.flash and getTimestampMs() < self.flashUntil then text, token, icon = self.flash, "text", "clipboardCheck"
+    if self.flash and getTimestampMs() < self.flashUntil then
+        text, token, icon = self.flash, self.flashBad and "errorText" or "text", self.flashBad and "close" or "clipboardCheck"
     elseif C.loading or not C.data then text, token, icon = T("Loading"), "textMuted", "reload"
     elseif C.stale then text, token, icon = T("StaleNotice", tostring(C.stale)), "text", "reload"
     else

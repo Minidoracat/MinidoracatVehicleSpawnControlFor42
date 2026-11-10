@@ -74,7 +74,7 @@ local function skinsOf(full)
 end
 
 -- 有些 MOD 會替車種加上綁了輪子、卻沒有模型的零件（例：Immersive Snow 0.5.2 的 ISnowWheel*）。引擎預覽的 initWheelModel
--- 直接讀這種零件的模型清單（null）→ 每幀 NPE，被 UIManager 接住後該幀其餘 UI 全部不畫（UI3DScene.java:7375）。
+-- 直接讀這種零件的模型清單（null）→ 每幀 NPE，被 UIManager 接住後該幀其餘 UI 全部不畫（UI3DScene.java:7374）。
 -- Lua 讀不到零件的 wheel 欄位，改用不加入世界的暫時車以 getWheelIndex 判斷；回傳第一個這種零件的 id。不快取：那類 MOD 之後可能補上模型
 local function brokenWheelPart(full)
     local found
@@ -167,9 +167,10 @@ function Tab:createChildren()
     self.vehicleList.onMouseDown = Tab.onVehicleMouseDown
     self:layoutLeft(4)
 
-    -- 中：3D 預覽（全程只有一個場景，AGENTS 鐵則）
+    -- 中：3D 預覽（全程只有一個場景，AGENTS 鐵則）。底部「生成到身邊」那一列的高度從預覽扣，
+    -- 色票區才不會被擠掉（小螢幕、或名額用完多兩行說明時，色票連一列都放不下）
     local sceneTop = head
-    local sceneH = math.floor(h * 0.58) - sceneTop
+    local sceneH = math.floor(h * 0.58) - sceneTop - (ch + PAD)
     self.scene = ISUI3DScene:new(mx + IN, sceneTop, mw - IN * 2, sceneH)
     self.scene:initialise()
     self.scene:instantiate()
@@ -208,6 +209,9 @@ function Tab:createChildren()
     end
     self.infoY = by + ch + IN
     self.clearBtn = W.button(self, mx + IN, h - IN - ch, math.min(mw - IN * 2, 200), ch, T("ClearSelection"), self, Tab.onClearSel, "secondary")
+    -- 同一格：多選時是「清除選取」，只選一台時是「生成到身邊」
+    self.spawnBtn = W.button(self, mx + IN, h - IN - ch, math.min(mw - IN * 2, 200), ch, T("SpawnHere"), self, Tab.onSpawn, "secondary", "plus")
+    self.canSpawn = nil -- 權限可能在面板開著時被改（RolesPacket），prerender 每幀比對
 
     -- 右（單台）：此車倍率＋各區域權重列＋加入區域／停用
     self.vehMult = W.stepper(self, rx + rw - IN - sw, head, sw, ch, {
@@ -361,7 +365,7 @@ function Tab:showPreview()
     self.shownScript = name
     if name then j:fromLua2("setVehicleScript", "v", name) end
     j:fromLua2("setObjectVisible", "v", name ~= nil)
-    -- 初始化當下模型若還沒載入，場景會一直空白直到再次 setVehicleScript（UI3DScene.java:6101-6105）
+    -- 初始化當下模型若還沒載入，場景會一直空白直到再次 setVehicleScript（UI3DScene.java:6100-6104）
     self.resetAt = name and 30 or nil
     self:updateMode()
 end
@@ -396,6 +400,7 @@ function Tab:updateMode()
         b:setUsable(single)
     end
     self.clearBtn:setVisible(batch)
+    self.spawnBtn:setVisible(single)
     self.vehMult:setVisible(single)
     self.zoneBox:setVisible(single)
     self.addBtn:setVisible(single)
@@ -511,7 +516,11 @@ function Tab:onClearSel()
     self:afterSelect()
 end
 
--- 與原版預設視角同角度（UI3DScene.java:2604-2627）；iso＝開啟時的斜俯視
+function Tab:onSpawn()
+    if self.selectedFull then C.spawn(self.selectedFull, self.skin) end
+end
+
+-- 與原版預設視角同角度（UI3DScene.java:2603-2626）；iso＝開啟時的斜俯視
 Tab.ANGLES = { front = { 0, 0, 0 }, side = { 0, 270, 0 }, top = { 0, 90, 90 }, iso = { 25, 135, 0 } }
 local ZOOM = 5
 
@@ -524,7 +533,7 @@ function Tab:setAngle(a)
     self:pan(self.viewX, self.viewY) -- 平移歸零
 end
 
--- dragView(dx, dy)：viewX -= dx、viewY -= dy（UI3DScene.java:1052-1058）；引擎取整數，這裡同步記
+-- dragView(dx, dy)：viewX -= dx、viewY -= dy（UI3DScene.java:1053-1059）；引擎取整數，這裡同步記
 function Tab:pan(dx, dy)
     dx, dy = math.floor(dx + 0.5), math.floor(dy + 0.5)
     if dx == 0 and dy == 0 then return end
@@ -571,7 +580,7 @@ function Tab.sceneMove(scene, dx, dy)
     scene.javaObject:fromLua3("setViewRotation", r[1], r[2], r[3])
 end
 
--- 以畫面中心縮放並保留平移：平移量是「縮放後像素」，要依 zoomMult 比例換算（UI3DScene.java:378-380,2597）
+-- 以畫面中心縮放並保留平移：平移量是「縮放後像素」，要依 zoomMult 比例換算（UI3DScene.java:379-381,2596）
 function Tab.sceneWheel(scene, del)
     local tab = scene.parent
     local z = math.max(1, math.min(20, tab.zoom - del))
@@ -698,6 +707,12 @@ function Tab:prerender()
             if self.shownScript then self.scene.javaObject:fromLua2("setVehicleScript", "v", self.shownScript) end
         end
     end
+    local can = C.canSpawn()
+    if can ~= self.canSpawn then
+        self.canSpawn = can
+        self.spawnBtn:setUsable(can)
+        self.spawnBtn.hint = T(can and "SpawnTip" or "SpawnDenied")
+    end
     self.srcMult:setVisible(self.source ~= ALL)
     for i, c in ipairs(self.cols) do
         W.card(self, c[1], 0, c[2], self.height)
@@ -784,7 +799,7 @@ function Tab:render()
         end
     end
     self.swatches = nil
-    if #names > 1 then self:drawSwatches(names, x, y + 6, mw - IN * 2, self.height - IN - y - 6) end
+    if #names > 1 then self:drawSwatches(names, x, y + 6, mw - IN * 2, self.spawnBtn:getY() - PAD - y - 6) end
 
     U.text(self, U.fit(T("VehicleMult"), rw - IN * 2 - self.stepW - 8), rx + IN, self.vehMult:getY() + math.floor((ch - FH) / 2), "textMuted")
     if #self.zoneRows == 0 then

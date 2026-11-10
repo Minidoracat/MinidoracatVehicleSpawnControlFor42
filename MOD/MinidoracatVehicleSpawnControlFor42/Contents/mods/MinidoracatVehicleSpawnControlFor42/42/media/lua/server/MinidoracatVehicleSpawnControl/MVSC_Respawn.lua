@@ -1,10 +1,10 @@
 -- MinidoracatVehicleSpawnControl 已探索停車區補車（設計：docs/design-proposals/vehicle-spawn-control.md 第 9 節）。
 -- 伺服器與單人跑；MP 客戶端在檔頭就返回。只加車：不刪、不移、不修已在世界上的車（verify_mod.py 擋刪車與移車的呼叫）。
 --   開服：包住 IsoWorld 方法表的 registerVehiclesZone，記下原版 doMapZones 登記的每個停車區與 Direction 屬性
---     （Lua 讀不到 VehicleZone.dir）→ OnLoadedMapZones 照 IsoChunk.AddVehicles_OnZone（IsoChunk.java:941-1118）的算法算出車位。
+--     （Lua 讀不到 VehicleZone.dir）→ OnLoadedMapZones 照 IsoChunk.AddVehicles_OnZone（IsoChunk.java:940-1117）的算法算出車位。
 --   LoadChunk：舊區塊（不是 isNewChunk）有車位就把它的 64×64 格排進佇列；新區塊引擎剛生過車。
---   OnTick：專用伺服器等 SETTLE_MP 秒才檢查（LoadChunk 時舊區塊的存檔車還在背景讀資料庫，ServerMap.java:809,817-825、
---     VehiclesDB2.java:343-348,491-522；引擎沒有讀完的事件），每個 tick 最多處理一格：補到這一格原生的平均車數（R.target）。
+--   OnTick：專用伺服器等 SETTLE_MP 秒才檢查（LoadChunk 時舊區塊的存檔車還在背景讀資料庫，ServerMap.java:827,830-838、
+--     VehiclesDB2.java:346-351,494-525；引擎沒有讀完的事件），每個 tick 最多處理一格：補到這一格原生的平均車數（R.target）。
 --   每格機率照引擎公式（spawnRate 依沙盒 CarSpawnRate 換算再加 1%），車種用引擎的 VehicleType.getRandomVehicleType 抽（燒毀車、
 --   特殊車照區域參數），車款依目前生效表的 spawnChance 加權，放車用 addVehicleDebug（唯一會把車寫進區塊與車輛資料庫的 Lua 入口），
 --   同一個 tick 內把車況改回引擎生車的樣子（R.naturalize）。
@@ -41,11 +41,11 @@ R.window = newWindow(0)
 -- ---------------------------------------------------------------- 停車區索引
 local seenRect = {}
 local function indexZone(name, kind, x, y, z, w, h, props, zone)
-    if z ~= 0 then return end -- AddVehicles_OnZone 只在 z=0 放車（IsoChunk.java:976）
+    if z ~= 0 then return end -- AddVehicles_OnZone 只在 z=0 放車（IsoChunk.java:975）
     local n = (name ~= nil and name ~= "") and name or kind
     if n == nil or n == "TestVehicles" or string.find(string.lower(n), "trafficjam", 1, true) then return end
     local rect = x .. "," .. y .. "," .. w .. "," .. h
-    if seenRect[rect] then return end -- checkVehiclesZones 刪掉位置大小相同的重複區（IsoMetaGrid.java:872-913）
+    if seenRect[rect] then return end -- checkVehiclesZones 刪掉位置大小相同的重複區（IsoMetaGrid.java:880-921）
     seenRect[rect] = true
     local dir = props and props.Direction
     if dir ~= "N" and dir ~= "S" and dir ~= "W" and dir ~= "E" then dir = nil end
@@ -72,8 +72,8 @@ function R.installZoneIndex()
     return true
 end
 
--- 車位照 AddVehicles_OnZone：預設朝北；寬 4–6、高 ≤3 或 ≥6 的區朝西；有 Direction 屬性照它（:942-957）。
--- 南北向每 3 格一位、每排 5 格；東西向反過來。車位格＝區的原點加半個步距起算（:960-976）
+-- 車位照 AddVehicles_OnZone：預設朝北；寬 4–6、高 ≤3 或 ≥6 的區朝西；有 Direction 屬性照它（:941-956）。
+-- 南北向每 3 格一位、每排 5 格；東西向反過來。車位格＝區的原點加半個步距起算（:959-975）
 local function stallsOf(z, add)
     local dir = z.dir
     if not dir then dir = (z.w >= 4 and z.w <= 6 and (z.h <= 3 or z.h >= 6)) and "W" or "N" end
@@ -155,7 +155,7 @@ local function typeName(vt)
     return typeNames[vt]
 end
 
--- 照 IsoChunk.RandomizeModel（:1317-1358）：依生效表的 spawnChance 加權抽車款；index > -1 用指定塗裝，否則隨機
+-- 照 IsoChunk.RandomizeModel（:1316-1357）：依生效表的 spawnChance 加權抽車款；index > -1 用指定塗裝，否則隨機
 local function pickScript(name)
     local def = VehicleZoneDistribution[name]
     local list = def and def.vehicles
@@ -178,7 +178,7 @@ local function pickScript(name)
 end
 
 -- ---------------------------------------------------------------- 安全檢查
--- 車心照 AddVehicles_OnZone :1054-1098：車頭靠區的那一邊，車位格可能往前挪一格，最後夾在那一格內
+-- 車心照 AddVehicles_OnZone :1053-1097：車頭靠區的那一邊，車位格可能往前挪一格，最後夾在那一格內
 local function engineCenter(z, tx, ty, len)
     local vx, vy = tx + 0.5, ty + 0.5
     if z.dir == "N" then
@@ -207,7 +207,7 @@ local function footprint(cx, cy, dir, len, wid)
     return math.floor(cx - ex), math.floor(cy - ey), math.floor(cx + ex), math.floor(cy + ey)
 end
 
--- isVehicleIntersecting 看得到已載入的車（IsoGridSquare.java:9895-9916）；有人、殭屍、動物、屍體、地上物品、玩家蓋的東西都不放
+-- isVehicleIntersecting 看得到已載入的車（IsoGridSquare.java:9853-9874）；有人、殭屍、動物、屍體、地上物品、玩家蓋的東西都不放
 function R.squareFree(sq)
     if not sq or not sq:isSolidFloor() or sq:isSolid() or sq:isSolidTrans() or sq:HasTree() or sq:isWaterSquare() then return false end
     if sq:isVehicleIntersecting() or not sq:getMovingObjects():isEmpty() or sq:getDeadBody() ~= nil then return false end
@@ -247,7 +247,7 @@ local function luaFunction(path)
     return type(f) == "function" and f or nil
 end
 
--- 警報機率照 AddVehicles_OnZone :1009-1032（沙盒 CarAlarm）；燒毀與撞爛的車不裝
+-- 警報機率照 AddVehicles_OnZone :1008-1031（沙盒 CarAlarm）；燒毀與撞爛的車不裝
 function R.alarmRoll(v)
     local chance = ({ -1, 3, 8, 15, 25, 50 })[SandboxVars.CarAlarm or 4] or 15
     local n = string.lower(v:getScriptName() or "")
@@ -259,13 +259,13 @@ end
 -- 引擎生車時零件在 vehicleType 設好之後才建（VehicleParts.createParts → Lua Vehicles.Create.*），這裡照同樣的順序重做：
 -- 每個零件 setRandomCondition（讀這一區的 baseVehicleQuality 與 chanceToPartDamage，VehiclePart.java:225-291），
 -- 再跑零件的 create（電瓶電量、油量、車門上鎖、引擎品質；已有零件物品時不會重建物品，Vehicles.lua:1153-1194）。
--- 警報要先設：車門沒上鎖時 Create.Door 會把它關掉（Vehicles.lua:165-170）。鑰匙在放車當下已由引擎用預設 70% 決定（無法補）
+-- 警報要先設：車門沒上鎖時 Create.Door 會把它關掉（Vehicles.lua:165-170）。鑰匙由引擎在 addToWorld 時擲（BaseVehicle.java:8038-8049 → trySpawnKey :2934-2950），那時還沒設 vehicleType，用預設 70%；沒擲中 keySpawned 不變，之後每次從存檔載入再擲，但 vehicleType 不存檔（save :2625-2734 沒寫 type），重載也是 70%：補不回區域的 chanceToSpawnKey
 function R.naturalize(v, zoneName, name, def)
     v:setZone(zoneName)
     v:setVehicleType(name)
     if def.specialCar == true then
         v:setDoColor(false)
-        v:setColorHSV(0, 0.1, 0.9) -- 引擎生特殊車時不上色的值（BaseVehicle.java:733-735）
+        v:setColorHSV(0, 0.1, 0.9) -- 引擎生特殊車時不上色的值（BaseVehicle.java:740-742）
     end
     if R.alarmRoll(v) then v:setAlarmed(true) end
     for i = 0, v:getPartCount() - 1 do
@@ -317,15 +317,118 @@ function R.placeAt(c, cfg)
     return "placed"
 end
 
+-- ---------------------------------------------------------------- 生成到身邊（管理面板的 spawn 命令，MVSC_ServerNet）
+-- 引擎放車只查車心那一格（不在停車區就要在戶外）和剛生的車（IsoChunk.doSpawnedVehiclesInInvalidPosition :1239-1267），不查牆：
+-- 車框每一格另外要在戶外、北／西邊沒有牆、門窗、圍籬（原版判斷穿牆用同一組旗標，ISBuildIsoEntity.lua:204-208）、
+-- 沒有車庫門（門物件在室外那一格、不帶牆旗標，原版另外查，ISBuildIsoEntity.lua:200-202）、圍籬門、牆角柱、樓梯。
+-- 只放 z=0（本 MOD 的規格；原版 /addvehicle 只拒 z>0，AddVehicleCommand.java:93-94）；玩家周圍一格不放，車框不會擦到人
+-- MP：舊區塊的存檔車在區塊載入後才由背景讀回（ServerMap.java:827-838 → VehiclesDB2.java:346-351,494-525），
+-- 讀回前 isVehicleIntersecting 看不到：附近有 R.SETTLE_MP 秒內載入的舊區塊就先不放（R.noteLoaded 記時間，同補車的等待）
+R.SPAWN_RADIUS = 12 -- 格：由近到遠一圈一圈找（切比雪夫距離）
+R.spawned = {}      -- { x0, y0, x1, y1, 秒 }：剛放的車 R.JUST_PLACED 秒內 isVehicleIntersecting 看不到（同 R.justPlaced）
+R.loaded, R.loadedOld, R.loadedSince = {}, {}, 0 -- 區塊鍵 → 載入秒數；每 R.SETTLE_MP 秒換一代，舊的只留一代
+local EDGES = { "collideN", "collideW", "WallN", "WallW", "WallNW", "WallSE", "WindowN", "WindowW", "DoorWallN", "DoorWallW", "doorN", "doorW",
+    "HoppableN", "HoppableW" }
+
+local function settling(x0, y0, x1, y1, now)
+    for wx = math.floor(x0 / 8), math.floor(x1 / 8) do
+        for wy = math.floor(y0 / 8), math.floor(y1 / 8) do
+            local k = T.key(wx, wy)
+            local at = R.loaded[k] or R.loadedOld[k]
+            if at and now - at < R.SETTLE_MP then return true end
+        end
+    end
+    return false
+end
+
+local function openGround(sq)
+    if not R.squareFree(sq) or not sq:isOutside() or sq:HasStairs() or sq:has(IsoPropertyType.GARAGE_DOOR) then return false end
+    for _, flag in ipairs(EDGES) do
+        if sq:has(IsoFlagType[flag]) then return false end
+    end
+    return true
+end
+
+local function recentOverlap(x0, y0, x1, y1, now)
+    for i = #R.spawned, 1, -1 do
+        local s = R.spawned[i]
+        if now - s[5] >= R.JUST_PLACED then table.remove(R.spawned, i)
+        elseif x0 <= s[3] and s[1] <= x1 and y0 <= s[4] and s[2] <= y1 then return true end
+    end
+    return false
+end
+
+-- 車頭先朝玩家面向（斜向當成南北），放不下再轉 90 度
+local function headings(player)
+    local d = player:getDir()
+    if d == IsoDirections.E then return { "E", "S" } end
+    if d == IsoDirections.W then return { "W", "N" } end
+    if d == IsoDirections.S then return { "S", "W" } end
+    return { "N", "E" }
+end
+
+-- 在玩家身邊放一台指定車款與塗裝：回傳車，或 nil 與原因 "upstairs"／"settling"／"noroom"／"rejected"
+function R.spawnNear(player, full, skin)
+    if math.floor(player:getZ()) ~= 0 then return nil, "upstairs" end
+    local vs = ScriptManager.instance:getVehicle(full)
+    local ext, com = vs:getExtents(), vs:getCenterOfMassOffset()
+    -- 引擎的車框以重心偏移為中心（VehiclePoly.java:52-88；偏移和車長一起乘模型縮放，VehicleScript.java:437-441）：
+    -- 不換算方向，長寬兩側各加偏移量。原版最多約 0.33 格（Trailer），MOD 拖車可達 3 格
+    local len, wid = ext:z() + 2 * math.abs(com:z()), ext:x() + 2 * math.abs(com:x())
+    local px, py = math.floor(player:getX()), math.floor(player:getY())
+    local cell, now, seen = getCell(), getTimestamp(), {}
+    -- footprint 半邊最多 0.6 倍車長＋0.3；isVehicleIntersecting 另外會查每格外 4 格涵蓋的區塊（IsoGridSquare.java:9853-9874）
+    local reach = R.SPAWN_RADIUS + math.ceil(math.max(len, wid) * 0.6 + 0.3) + 4
+    if isServer() and settling(px - reach, py - reach, px + reach, py + reach, now) then return nil, "settling" end
+    local function fits(x0, y0, x1, y1)
+        for x = x0, x1 do
+            for y = y0, y1 do
+                if math.max(math.abs(x - px), math.abs(y - py)) <= 1 then return false end
+                local k = x * 100000 + y
+                if seen[k] == nil then seen[k] = openGround(cell:getGridSquare(x, y, 0)) end
+                if not seen[k] then return false end
+            end
+        end
+        return not recentOverlap(x0, y0, x1, y1, now)
+    end
+    local dirs = headings(player)
+    for r = 1, R.SPAWN_RADIUS do
+        for dx = -r, r do
+            for dy = -r, r do
+                if math.abs(dx) == r or math.abs(dy) == r then
+                    for _, dir in ipairs(dirs) do
+                        local x0, y0, x1, y1 = footprint(px + dx, py + dy, dir, len, wid)
+                        if fits(x0, y0, x1, y1) then
+                            -- 原版 ProfessionVehicles.CheckSwap（OnSpawnVehicleStart，BaseVehicle.java:817-818）會把 VanSeats_Mural、
+                            -- CarLightsPolice 這類車款換成當地版本，還把獨一車記成已生成（ProfessionVehicles.lua:261-315）：
+                            -- 玩家選的就是要生的，放車那一下先拿掉這一款的換車表，放完一定還原
+                            local swaps, short = ProfessionVehicles, vs:getName()
+                            local keep = swaps and swaps[short]
+                            if keep then swaps[short] = nil end
+                            local ok, v = pcall(addVehicleDebug, full, IsoDirections[dir], skin, cell:getGridSquare(px + dx, py + dy, 0))
+                            if keep then swaps[short] = keep end
+                            if not ok then error(v) end
+                            if not v or v:getSqlId() == -1 then return nil, "rejected" end
+                            R.spawned[#R.spawned + 1] = { x0, y0, x1, y1, now }
+                            return v
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nil, "noroom"
+end
+
 -- ---------------------------------------------------------------- 一格 64×64
 -- 引擎記在區上的資料（隨世界存檔）：hourLastSeen 在玩家看見格子時更新（Meta.java:17-38），
--- haveConstruction＝玩家在這區蓋過東西（Zone.java:245-269）。原版物資重生用同一組門檻（LootRespawn.java:112-115）。
+-- haveConstruction＝玩家在這區蓋過東西（Zone.java:245-269）。原版物資重生用同一組門檻（LootRespawn.java:113-116）。
 -- 專用伺服器只在看見「房間裡的格子」時更新（ServerLOS → IsoGridSquare.CalcVisibility，room 為 nil 就跳過，javap 確認），
 -- 戶外停車場要同一區有人看過室內才記得到；單人由 LightingJNI 記，戶外也算（LightingJNI.java:1510-1521）
 local function zoneInfo(zone)
     local since = zone:getHoursSinceLastSeen()
     local seenAt = getGameTime():getWorldAgeHours() - since
-    -- hourLastSeen 是 0（沒人看過）或 1（引擎生故事時把 0 加 1，IsoChunk.java:1861,3059）都不算有人來過
+    -- hourLastSeen 是 0（沒人看過）或 1（引擎生故事時把 0 加 1，IsoChunk.java:1860,3058）都不算有人來過
     return { visited = seenAt >= 2, built = zone:haveCons(),
         estimate = since * getGameTime():getMinutesPerDay() * 2.5 } -- 遊戲小時換成現實秒數（一天 minutesPerDay 分鐘）
 end
@@ -435,6 +538,18 @@ function R.onLoadChunk(chunk)
     R.queue[bk] = R.queue[bk] or now
 end
 
+-- 生成到身邊用：MP 記每個舊區塊（有存檔車要讀回）的載入時間，不管補車開不開
+function R.noteLoaded(chunk)
+    if not isServer() or chunk:isNewChunk() then return end
+    local ox, oy = chunkOrigin(chunk)
+    if not ox then return end
+    local now = getTimestamp()
+    if now - R.loadedSince >= R.SETTLE_MP then
+        R.loadedOld, R.loaded, R.loadedSince = R.loaded, {}, now
+    end
+    R.loaded[T.key(math.floor(ox / 8), math.floor(oy / 8))] = now
+end
+
 local lastError, lastErrorAt = nil, 0
 local function logError(err, now)
     err = tostring(err)
@@ -525,5 +640,6 @@ R.installed = R.installZoneIndex()
 R.window = newWindow(getTimestamp())
 Events.OnLoadedMapZones.Add(R.buildIndex)
 Events.LoadChunk.Add(R.onLoadChunk)
+Events.LoadChunk.Add(R.noteLoaded)
 Events.OnTick.Add(onTick)
 Events.OnSave.Add(function() if R.on then T.save(getTimestamp()) end end)

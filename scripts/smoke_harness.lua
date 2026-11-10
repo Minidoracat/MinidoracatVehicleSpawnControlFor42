@@ -104,11 +104,12 @@ end
 
 -- 假網路：ServerNet 以 sendServerCommand 回覆，送到本機玩家就交給 Client（模擬 MP）
 local ME = { getUsername = function() return "admin1" end }
-local admin = true
-ME.getRole = function() return { hasCapability = function(_, cap) return admin and cap == "SandboxOptions" end } end
-Capability = { SandboxOptions = "SandboxOptions" }
+local admin, manip = true, true
+ME.getRole = function() return { hasCapability = function(_, cap)
+    return admin and (cap == "SandboxOptions" or (cap == "ManipulateVehicle" and manip)) end } end
+Capability = { SandboxOptions = "SandboxOptions", ManipulateVehicle = "ManipulateVehicle" }
 function getPlayer() return ME end
--- 真引擎：開服套用（OnInitGlobalModData）時 udpEngine 還沒建立，getOnlinePlayers 會 NPE（GameServer.java:3575）
+-- 真引擎：開服套用（OnInitGlobalModData）時 udpEngine 還沒建立，getOnlinePlayers 會 NPE（GameServer.java:3585）
 local serverStarted = false
 function getOnlinePlayers()
     if not serverStarted then error("NullPointerException: GameServer.udpEngine is null") end
@@ -675,6 +676,11 @@ function getGameTime() return { getWorldAgeHours = function() return worldAge en
 function ZombRandFloat(a) return a end
 function instanceof(o, cls) return type(o) == "table" and o._class == cls end
 IsoDirections = { N = "N", S = "S", W = "W", E = "E" }
+-- 旗標名本身當值；假格子的 has 查 flags。只認真引擎有的名字（IsoFlagType.java），打錯字在這裡就丟錯
+local FLAG_NAMES = { collideN = 1, collideW = 1, WallN = 1, WallW = 1, WallNW = 1, WallSE = 1, WindowN = 1, WindowW = 1,
+    DoorWallN = 1, DoorWallW = 1, doorN = 1, doorW = 1, HoppableN = 1, HoppableW = 1 }
+IsoFlagType = setmetatable({}, { __index = function(_, k) return FLAG_NAMES[k] and k or error("no IsoFlagType." .. tostring(k)) end })
+IsoPropertyType = { GARAGE_DOOR = "GarageDoor" }
 SandboxVars = { CarSpawnRate = 4, CarAlarm = 4, EnableVehicles = true }
 local SAFEHOUSES = {}
 SafeHouse = { getSafehouseList = function() return javaList(SAFEHOUSES) end }
@@ -683,7 +689,11 @@ __classmetatables = { [IsoWorld.class] = { __index = { registerVehiclesZone = fu
     if kind ~= "Vehicle" and kind ~= "ParkingStall" then return nil end
     return { isFaceDirection = function() return props ~= nil and props.FaceDirection == true end }
 end } } }
-for _, sc in ipairs(SCRIPTS) do sc.getExtents = function() return vec(2, 1.5, 5) end end
+for _, sc in ipairs(SCRIPTS) do
+    sc.getExtents = function() return vec(2, 1.5, 5) end
+    sc.com = vec(0, 0, 0)
+    sc.getCenterOfMassOffset = function() return sc.com end
+end
 local TYPES = {}
 local function vtype(key) TYPES[key] = TYPES[key] or { key = key }; return TYPES[key] end
 VehicleType.getTypeFromName = function(key) return VehicleZoneDistribution[key] and vtype(key) or nil end
@@ -712,6 +722,9 @@ local function fsq(x, y)
     s.getDeadBody = function() return nil end
     s.getWorldObjects = function() return { isEmpty = function() return not s.flags.item end } end
     s.getObjects = function() return javaList(s.flags.built and { { _class = "IsoThumpable" } } or {}) end
+    s.isOutside = function() return not s.flags.indoor end
+    s.HasStairs = function() return s.flags.stairs == true end
+    s.has = function(_, flag) return s.flags[flag] == true end
     s.getZone = function() return LOTZONE end
     return s
 end
@@ -724,7 +737,10 @@ local function fchunk(wx, wy, isNew)
         getGridSquare = function(_, x, y, z) return z == 0 and SQ[(wx * 8 + x) .. "," .. (wy * 8 + y)] or nil end }
 end
 -- addVehicleDebug：車心在格子西北角；佔用車心周圍的格子（之後 isVehicleIntersecting 看得到）
+-- 原版 ProfessionVehicles.CheckSwap 在 addToWorld 裡把列在換車表的車款換掉（ProfessionVehicles.lua:261-315），這裡照做
 function addVehicleDebug(script, dir, skin, sq)
+    local swap = ProfessionVehicles and ProfessionVehicles[string.match(script, "%.(.+)$")]
+    if swap then script, skin = swap.General[1], 0 end
     local part = { getInventoryItem = function() return nil end,
         getLuaFunction = function(_, n) return n == "create" and "Vehicles.Create.Test" or nil end }
     part.setRandomCondition = function() part.randomized = true end
@@ -739,6 +755,12 @@ function addVehicleDebug(script, dir, skin, sq)
     v.getPartByIndex = function() return part end
     v.getScriptName = function() return script end
     v.setRust = function(_, r) v.rust = r end
+    v.locked = true
+    v.createVehicleKey = function() return { keyFor = script } end
+    v.setCurrentKey = function(_, k) v.key = k end
+    v.repair = function() v.repaired = true end
+    local door = { setLocked = function(_, b) v.locked = b end }
+    v.getPassengerDoor = function(_, seat) return seat == 0 and { getDoor = function() return door end } or nil end
     if not REJECT then
         if not LATE then
             for x = v.x - 1, v.x do
@@ -750,9 +772,11 @@ function addVehicleDebug(script, dir, skin, sq)
     return v
 end
 Vehicles = { Create = { Test = function(_, part) part.created = true end } }
-ME.px, ME.py = 5000, 5000
+ME.px, ME.py, ME.pz = 5000, 5000, 0
 ME.getX = function() return ME.px end
 ME.getY = function() return ME.py end
+ME.getZ = function() return ME.pz end
+ME.getDir = function() return ME.dir or IsoDirections.N end
 require "MinidoracatVehicleSpawnControl/MVSC_Respawn"
 local R, T = M.Respawn, M.RespawnTrack
 fire("OnServerStarted")
@@ -958,6 +982,118 @@ writeConfig({})
 advance(61000)
 advance(1000)
 check(R.on == false and T.enabledAt == nil and T.count() == 0, "關閉後停止記錄並清掉足跡")
+
+print("情境二十九：生成到身邊（由近到遠、不疊車、牆與室內、樓上、權限、亂送的參數）")
+PLACED, OCC, R.spawned, R.loaded, R.loadedOld = {}, {}, {}, {}, {}
+ME.px, ME.py, ME.dir = 1045, 1035, IsoDirections.E
+-- R.spawned 的車框 { x0, y0, x1, y1 } 裡每一格都要符合 ok(x, y)
+local function boxAll(b, ok)
+    for x = b[1], b[3] do
+        for y = b[2], b[4] do
+            if not ok(x, y) then return false end
+        end
+    end
+    return true
+end
+local function awayFromMe(x, y) return math.max(math.abs(x - ME.px), math.abs(y - ME.py)) > 1 end
+LATE = true -- 兩台都在引擎還看不到時放：第二台只能靠 R.spawned 避開第一台
+local v1 = R.spawnNear(ME, "Base.CarNormal", 2)
+check(v1 and v1.skin == 2 and v1.dir == "E" and math.max(math.abs(v1.x - ME.px), math.abs(v1.y - ME.py)) == 3,
+    "放在最近能放下的一圈（3 格）、用指定塗裝、車頭朝玩家面向")
+check(v1 and boxAll(R.spawned[1], awayFromMe), "車框不含玩家周圍一格")
+local v2 = R.spawnNear(ME, "Base.CarNormal", 0)
+LATE = false
+local b1, b2 = R.spawned[1], R.spawned[2]
+check(v2 and b2 and (b2[1] > b1[3] or b1[1] > b2[3] or b2[2] > b1[4] or b1[2] > b2[4]), "連按兩次：第一台引擎還看不到，第二台不疊在第一台上")
+PLACED, OCC, R.spawned = {}, {}, {}
+for _, s in pairs(SQ) do
+    if s.getY() <= ME.py - 2 then s.flags.indoor = true end
+    if s.getX() == ME.px - 2 then s.flags.WallW = true end
+end
+local v3 = R.spawnNear(ME, "Base.CarNormal", 0)
+check(v3 and boxAll(R.spawned[1], function(x, y) local s = SQ[x .. "," .. y]; return not s.flags.indoor and not s.flags.WallW end),
+    "車框避開室內與牆（北半邊是室內、西邊兩格有一道牆）")
+-- 戶外、沒有牆旗標、squareFree 也擋不到的三種：北邊一排關著的車庫門、西邊戶外樓梯、南邊圍籬門。只剩東邊放得下
+PLACED, OCC, R.spawned = {}, {}, {}
+for _, s in pairs(SQ) do
+    s.flags.indoor, s.flags.WallW = nil, nil
+    if s.getY() <= ME.py - 2 then s.flags.GarageDoor = true end
+    if s.getX() <= ME.px - 2 then s.flags.stairs = true end
+    if s.getY() >= ME.py + 4 then s.flags.doorN = true end
+end
+local v4 = R.spawnNear(ME, "Base.CarNormal", 0)
+check(v4 and boxAll(R.spawned[1], function(x, y) local s = SQ[x .. "," .. y]; return not (s.flags.GarageDoor or s.flags.stairs or s.flags.doorN) end),
+    "車框避開車庫門、戶外樓梯、圍籬門")
+for _, s in pairs(SQ) do s.flags.GarageDoor, s.flags.stairs, s.flags.doorN, s.flags.item = nil, nil, nil, true end
+local none, why = R.spawnNear(ME, "Base.CarNormal", 0)
+check(none == nil and why == "noroom" and #PLACED == 1, "12 格內沒有空地：回 noroom、不放車")
+for _, s in pairs(SQ) do s.flags.item = nil end
+ME.pz = 1
+local _, upWhy = R.spawnNear(ME, "Base.CarNormal", 0)
+ME.pz = -1
+local _, downWhy = R.spawnNear(ME, "Base.CarNormal", 0)
+ME.pz = 0
+check(upWhy == "upstairs" and downWhy == "upstairs" and #PLACED == 1, "樓上與地下室都不放（規格：只放 z=0；原版 /addvehicle 只拒樓上）")
+R.spawned = {}
+REJECT = true
+local rj, rjWhy = R.spawnNear(ME, "Base.CarNormal", 0)
+REJECT = false
+check(rj == nil and rjWhy == "rejected" and #R.spawned == 0, "引擎沒放進世界（sqlId -1）：回 rejected、不記成剛放的車")
+PLACED, OCC, R.spawned = {}, {}, {}
+local carScript = ScriptManager.instance:getVehicle("Base.CarNormal")
+carScript.com = vec(0, 0.3, 3) -- MOD 拖車那種重心偏移：車身往一頭多伸 3 格
+local vc = R.spawnNear(ME, "Base.CarNormal", 0)
+carScript.com = vec(0, 0, 0)
+local bc = R.spawned[1]
+check(vc and bc and bc[3] - bc[1] + 1 >= 12 and boxAll(bc, awayFromMe), "車框把重心偏移算進去（車長 5、偏 3 格：車頭朝東的車框至少 12 格寬）")
+PLACED, OCC, R.spawned = {}, {}, {}
+-- 原版換車表（VanSeats_Mural → 當地壁畫車）不能把玩家選的車款換掉；放完換車表要原樣還原（自然生車與補車照常換）
+local muralSwap = { General = { "Base.VanSeats_LadyDelighter" } }
+ProfessionVehicles = { CarNormal = muralSwap }
+local vs = R.spawnNear(ME, "Base.CarNormal", 3)
+check(vs and vs.script == "Base.CarNormal" and vs.skin == 3 and ProfessionVehicles.CarNormal == muralSwap,
+    "原版換車表裡的車款照選的車款與塗裝生成，換車表放完就還原")
+ProfessionVehicles = nil
+PLACED, OCC, R.spawned = {}, {}, {}
+local beside = fchunk(math.floor((ME.px + 10) / 8), math.floor(ME.py / 8), false) -- 不是玩家所在的區塊，但在搜尋範圍內
+fire("LoadChunk", beside)
+local sv, svWhy = R.spawnNear(ME, "Base.CarNormal", 0)
+check(sv == nil and svWhy == "settling" and #PLACED == 0, "MP 身邊的舊區塊剛載入（存檔車還沒讀回）：回 settling、不放車")
+nowMs = nowMs + R.SETTLE_MP * 1000
+check(R.spawnNear(ME, "Base.CarNormal", 0) ~= nil, "等滿 R.SETTLE_MP 秒就照常放")
+PLACED, OCC, R.spawned, R.loaded, R.loadedOld = {}, {}, {}, {}, {}
+fire("LoadChunk", fchunk(math.floor(ME.px / 8), math.floor(ME.py / 8), true))
+check(R.spawnNear(ME, "Base.CarNormal", 0) ~= nil, "新區塊沒有存檔車要讀回：剛載入也照放")
+-- 車框碰不到、但 isVehicleIntersecting 會查到的鄰近區塊（車框最遠 16 格，再外 4 格）：那裡的存檔車車身可能伸進車框
+PLACED, OCC, R.spawned, R.loaded, R.loadedOld = {}, {}, {}, {}, {}
+fire("LoadChunk", fchunk(math.floor((ME.px + 20) / 8), math.floor(ME.py / 8), false))
+local fv, fvWhy = R.spawnNear(ME, "Base.CarNormal", 0)
+check(fv == nil and fvWhy == "settling" and #PLACED == 0, "車框外 4 格內的舊區塊剛載入也等（那裡的車可能伸進車框）")
+R.loaded, R.loadedOld = {}, {}
+PLACED, OCC, R.spawned = {}, {}, {}
+local results = {}
+local function onSpawnResult(e, a) if e == "spawnResult" then results[#results + 1] = a end end
+Cl.on(onSpawnResult)
+Cl.spawn("Base.CarNormal", 99)
+local car = PLACED[1]
+check(results[1] and results[1].ok and results[1].full == "Base.CarNormal" and car and car.skin == 2,
+    "面板送 spawn：伺服器放車並回 spawnResult；塗裝序號 99 夾到最後一款（3 款 → 2）")
+check(car and car.key and car.key.keyFor == "Base.CarNormal" and car.repaired and car.locked == false,
+    "車況同原版 /addvehicle：鑰匙插在車上、修好、駕駛座車門解鎖")
+manip = false
+Cl.spawn("Base.CarNormal", 0)
+check(results[2] and results[2].ok == false and results[2].reason == "denied" and #PLACED == 1, "少 ManipulateVehicle：回 denied、不放車")
+manip, admin = true, false
+sent = {}
+Cl.spawn("Base.CarNormal", 0)
+check(sent[1] == "denied" and #sent == 1 and #results == 2 and #PLACED == 1, "少 SandboxOptions：整個命令被拒，不放車")
+admin = true
+Cl.spawn("MVSCPreview.PreviewBurnt01", 0)
+Cl.spawn("Base.NoSuchCar", 0)
+Cl.spawn({ "Base.CarNormal" }, { 1 })
+check(results[3] and results[3].reason == "unknown" and results[4] and results[4].reason == "unknown"
+    and results[5] and results[5].reason == "unknown" and #PLACED == 1, "預覽代理車種、不存在的車名、亂送的型別：回 unknown、不放車")
+Cl.off(onSpawnResult)
 
 print()
 if failures > 0 then

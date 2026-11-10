@@ -1,6 +1,6 @@
 -- MinidoracatVehicleSpawnControl 補車：玩家足跡（現實時間）。伺服器與單人跑；MP 客戶端在檔頭就返回。
 --   每秒讀一次每位玩家的座標，把附近 NEAR 格內的 64×64 格（伺服器一次載入的 cell）記成現在的時間。時間取 getTimestamp()
---   （系統時鐘的秒數，LuaManager.java:9287-9289）：關服、PauseEmpty 暫停的時間照算，和日長設定無關。
+--   （系統時鐘的秒數，LuaManager.java:9223-9225）：關服、PauseEmpty 暫停的時間照算，和日長設定無關。
 --   每格三個時間：last＝最後一次有人、start＝這次來訪開始、prev＝這次來訪前最後一次有人；超過 GAP 秒沒人靠近就算來訪結束。
 --   補車只問 quietBefore：「這次有人來之前，這一格空了多久」。單人的區塊要玩家走近才載入，那時這格已記成現在，所以不能只看 last。
 --   紀錄只寫伺服器本機檔 Zomboid/Lua/MinidoracatVehicleSpawnControl/respawn/<世界名>/tracker-a|b.txt（兩份輪流寫，檔頭檔尾帶代數，
@@ -16,7 +16,7 @@ local T = {}
 M.RespawnTrack = T
 
 T.CELL = 64          -- 伺服器一次載入 64×64 格
-T.NEAR = 88          -- 客戶端載入範圍最大約 ±87 格（GameServer.java:2808 把範圍夾在 12–20 個區塊寬）
+T.NEAR = 88          -- 客戶端載入範圍最大約 ±87 格（GameServer.java:2836 把範圍夾在 12–20 個區塊寬）
 T.GAP = 600          -- 秒：超過這麼久沒人靠近，這次來訪就算結束
 T.MOVE = 16          -- 玩家移動這麼多格才重記
 T.REMARK = 60        -- 秒：站著不動也每這麼久重記一次
@@ -35,7 +35,7 @@ function T.key(x, y) return x * 65536 + y end
 function T.players()
     local out = {}
     if isServer() then
-        if not T.serverStarted then return out end -- 開服前 getOnlinePlayers 會 NPE（GameServer.java:3575）
+        if not T.serverStarted then return out end -- 開服前 getOnlinePlayers 會 NPE（GameServer.java:3585）
         local list = getOnlinePlayers()
         for i = 0, list:size() - 1 do out[#out + 1] = list:get(i) end
     else

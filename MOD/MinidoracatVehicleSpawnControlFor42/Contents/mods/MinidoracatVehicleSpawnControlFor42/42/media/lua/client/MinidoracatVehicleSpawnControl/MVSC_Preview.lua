@@ -1,6 +1,6 @@
 -- 3D 預覽換塗裝與補零件：把車種載入代理車種（media/scripts/MinidoracatVehicleSpawnControl_PreviewVehicles.txt）再交給遊戲內建的預覽畫。
--- 遊戲內建的預覽只畫第 0 款塗裝（UI3DScene.java:6115-6117）、每個零件只畫第一個模型（:7439），沒有切換的命令；
--- 代理車種只在本機記憶體改，退回主選單或進遊戲時腳本從檔案重讀（IngameState.java:980,1048、Core.java:3882,3931），
+-- 遊戲內建的預覽只畫第 0 款塗裝（UI3DScene.java:6114-6116）、每個零件只畫第一個模型（:7438），沒有切換的命令；
+-- 代理車種只在本機記憶體改，退回主選單或進遊戲時腳本從檔案重讀（IngameState.java:980,1047、Core.java:3473,3522），
 -- 代理回到燒毀車外殼。車種註冊後刪不掉、塗裝只能附加（VehicleScript.java:341-345），所以一個代理只給一個（車、塗裝）用，
 -- 同一次進遊戲內重複看同一個組合沿用同一個代理；用完就退回貼圖（面板說明會註明）。
 require "MinidoracatVehicleSpawnControl/MVSC_Core"
@@ -71,7 +71,7 @@ local function scanBody(body, acc, depth)
     end
 end
 
--- 第 k 款（0 起算）的遮罩：塗裝自己的優先，否則車種層級的（BaseVehicle.java:586-589 copyMissingFrom）
+-- 第 k 款（0 起算）的遮罩：塗裝自己的優先，否則車種層級的（BaseVehicle.java:593-596 copyMissingFrom）
 local function maskOf(src, k)
     local acc = { skins = {}, mask = nil }
     for _, body in ipairs(bodiesOf(src)) do scanBody(body, acc, 0) end
@@ -137,7 +137,7 @@ local function build(slot, full, k, skinTex)
     px:Load(slot, string.format("vehicle %s { model { file = %s, scale = %.6f, offset = %s, rotate = %s, } skin { texture = %s,%s } }",
         slot, m:getFile(), m:getScale(), v3(m:getOffset()), v3(m:getRotate()), skinTex,
         mask and (" textureMask = " .. mask .. ",") or ""))
-    -- 零件要原樣複製：預覽只對有 door／window 區塊的零件播「關上」的動畫（UI3DScene.java:6519-6526）
+    -- 零件要原樣複製：預覽只對有 door／window 區塊的零件播「關上」的動畫（UI3DScene.java:6518-6525）
     px:copyPartsFrom(src, "*")
     px:copyWheelsFrom(src, "*")
     local patch = splitText(splitsOf(full))

@@ -1,7 +1,7 @@
 <!-- 指南網址：https://steamcommunity.com/sharedfiles/filedetails/?id=3817839906 -->
 <!-- Steam guide source (English): the full reference for this mod; the Workshop description only summarizes. Format and sync: pz-family-docs/release.md「完整說明：Steam 指南」 -->
 <!-- 標題：📖 Vehicle Spawn Control Mod Guide: Panel & Config File -->
-<!-- 摘要：Illustrated guide to the Minidoracat Vehicle Spawn Control mod: using the in-game panel to set each zone's spawn amount and vehicle mix, the 3D preview and paint jobs, batch edits, history and restore, parking lot refill, plus permissions, the config file format, known limitations and FAQ. -->
+<!-- 摘要：Illustrated guide to the Minidoracat Vehicle Spawn Control mod: using the in-game panel to set each zone's spawn amount and vehicle mix, the 3D preview and paint jobs, spawning a vehicle next to you, batch edits, history and restore, parking lot refill, plus permissions, the config file format, known limitations and FAQ. -->
 === 🚀 Quick start
 [b]繁體中文版：[/b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3817839865]車輛生成控制 MOD 完整說明[/url]
 
@@ -91,6 +91,16 @@ Vehicle Spawn Control lets server admins (or singleplayer players) decide how ma
 [*] [b]What the panel does[/b]: detects this, skips the 3D preview for that vehicle and says so underneath.
 [*] [b]Everything else works[/b]: the rest of the panel keeps working and spawned vehicles are not affected.
 [/list]
+=== 🧰 Spawn near me
+[list]
+[*] [b]Where[/b]: with exactly one vehicle selected on the Vehicles tab, "Spawn near me" sits at the bottom of the middle column (the same spot shows "Clear selection" when several vehicles are selected).
+[*] [b]What spawns[/b]: the previewed model with the paint swatch you picked; the color is random as usual. Vanilla spawning swaps some models, such as the mural vans and police cars, for a local version; this button does not, so you get exactly the model you picked.
+[*] [b]Condition[/b]: the same as the vanilla admin /addvehicle: every part installed and fully repaired, a full gas tank and battery, the key in the ignition and the driver's door unlocked.
+[*] [b]Where it goes[/b]: the mod searches outward from you ring by ring, up to 12 tiles away, and uses the first open outdoor spot that fits the whole vehicle. It never goes indoors, across walls, fences, doors, windows, garage doors or stairs, onto another vehicle or right next to you; clicking several times does not stack new vehicles on the one just placed.
+[*] [b]When it cannot place one[/b]: the bottom of the panel says why: no open spot nearby (try again somewhere more open), you are not on the ground floor (upstairs and basements do not work), the area around you just loaded (on a multiplayer server, right after you teleport or arrive, wait a few seconds for the existing vehicles to load and click again), or you lack the permission.
+[*] [b]Permission[/b]: singleplayer can always use it; in multiplayer you need the panel permission plus the vanilla ManipulateVehicle permission (see Permissions).
+[*] [b]Log[/b]: every spawn is written to the server log (who, which vehicle, the result); it does not appear on the History tab and does not change the config file.
+[/list]
 === 🧰 Batch edits
 {{img:03-batch-edit-en.jpg}}
 [h3]Vehicle list[/h3]
@@ -139,6 +149,7 @@ Vanilla only spawns vehicles the first time an area generates: once players driv
 [*] [b]Multiplayer[/b]: uses the vanilla role permission "Sandbox Options" (moderators and admins have it by default, GMs do not).
 [*] [b]Other roles[/b]: admins can grant it to any role in the role settings.
 [*] [b]Server check[/b]: the server checks it again on every write command.
+[*] [b]Spawn near me[/b]: also needs the vanilla ManipulateVehicle permission (the one /addvehicle uses; moderators and admins have it by default); the server checks it again on every spawn.
 [*] [b]Singleplayer[/b]: no permission check.
 [/list]
 === ⚙️ Config file location & sync

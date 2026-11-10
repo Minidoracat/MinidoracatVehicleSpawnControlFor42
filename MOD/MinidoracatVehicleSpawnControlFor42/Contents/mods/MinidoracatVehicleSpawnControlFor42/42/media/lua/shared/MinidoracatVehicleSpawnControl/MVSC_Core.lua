@@ -1,12 +1,12 @@
 -- MinidoracatVehicleSpawnControl 核心（純邏輯，不碰引擎）：設定驗證、原始分布快照、計算套用後的區域表。
 -- 引擎事實（出處見 AGENTS.md「API 出處對照」與踩坑錄）：
---   * VehicleType.init 以 100/權重總和正規化；權重全 0 會變 NaN 並固定選到最後一台（VehicleType.java:72-81、IsoChunk.java:1322-1334）
+--   * VehicleType.init 以 100/權重總和正規化；權重全 0 會變 NaN 並固定選到最後一台（VehicleType.java:72-81、IsoChunk.java:1321-1333）
 --     → 停用一律「從清單移除」，套用結果不得出現 <= 0 的權重。
 --   * 停車區抽到空清單或不存在的車名時 RandomizeModel 回 false，那塊停車區在這個區塊剩下的車位都不生
---     （IsoChunk.java:1004-1006,1318-1320,1334-1338）。抽到的不一定是自己的清單：一般區每格有 chanceToSpawnSpecial
+--     （IsoChunk.java:1003-1005,1317-1319,1333-1337）。抽到的不一定是自己的清單：一般區每格有 chanceToSpawnSpecial
 --     改抽一個 specialCar 區、各區有 chanceToSpawnBurnt 改抽燒毀車、特殊區有 chanceToSpawnNormal 改用 parkingstall
 --     （VehicleType.java:178-193）→ 快照丟掉查不到的車名；「整區停用」＝清單清空，並讓別的區不會再抽到它（M.build）。
---   * spawnRate=0 仍有 1%（IsoChunk.java:996 用 <=），所以不拿 spawnRate 當停用開關。
+--   * spawnRate=0 仍有 1%（IsoChunk.java:995 用 <=），所以不拿 spawnRate 當停用開關。
 --   * 快取以原樣鍵存入、查詢先轉小寫（VehicleType.java:55,135,160,173）：有大寫的區域鍵引擎永遠查不到。原版與 MOD 都有
 --     （luxuryDealership、middleClass、MOD 的 SemiTankerOnly）；設定檔仍用執行期表的原樣鍵，伺服器開服時另補小寫別名（MVSC_Server）。
 require "MinidoracatVehicleSpawnControl/MVSC_Json"
@@ -48,7 +48,7 @@ function M.defaultConfig()
     return { schema = M.SCHEMA, newVehicles = "keep", sources = {}, vehicles = {}, zones = {}, respawn = respawn }
 end
 
--- 引擎在一個車位放車的機率（IsoChunk.AddVehicles_OnZone :985-996）：區域 spawnRate 依沙盒 CarSpawnRate 換算
+-- 引擎在一個車位放車的機率（IsoChunk.AddVehicles_OnZone :984-995）：區域 spawnRate 依沙盒 CarSpawnRate 換算
 -- （1 無、2 極低 /10 進位、3 低 /1.5 進位、4 一般、5 高 ×2；反編譯把 5 寫成固定 2，javap 看到的是 ×2），
 -- 判斷用 Rand.Next(100) <= chance 所以多 1%。補車的目標車數與面板說明共用
 function M.stallChance(spawnRate, carSpawnRate)
@@ -66,7 +66,7 @@ end
 -- resolve(name) 回完整 script 名或 nil：MOD 常用不帶模組的短名（如 "SemiTruck"，E2E core-mp 實見），引擎查得到
 -- （ScriptManager.getVehicle），但停用與倍率以完整名稱比對，所以快照時統一成完整名稱；同名合併時權重相加。
 -- 查不到的（車名寫錯、前後多了空白、車輛 MOD 沒裝）不放進快照，記在 dropped[車名] = { 區域… }：
--- 引擎抽到這種條目時那塊停車區剩下的車位都不生（IsoChunk.java:1334-1338,1004-1006），留著只會害別的車少生。
+-- 引擎抽到這種條目時那塊停車區剩下的車位都不生（IsoChunk.java:1333-1337,1003-1005），留著只會害別的車少生。
 local function copyVehicles(vehicles, resolve, dropped, zone)
     local out = {}
     if type(vehicles) ~= "table" then return out end

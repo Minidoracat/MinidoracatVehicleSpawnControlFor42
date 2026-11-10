@@ -3,8 +3,8 @@
 --   → 讀 config.json → 改表 → VehicleType.Reset()
 --   之後每 60 秒（真實時間）讀一次 config.json，內容變了才解析、驗證、套用。
 -- 引擎事實：改表後必須 Reset() 才會生效；Reset 與生車同在伺服器主迴圈，可隨時呼叫
---   （VehicleType.java:231-234、GameServer.java:972；E2E spike-mp 2026-09-26 實機驗證）。
--- 檔案都在 <cacheDir>/Lua/MinidoracatVehicleSpawnControl/（getFileReader/Writer 的根，LuaManager.java:5932-5958,6723-6755）。
+--   （VehicleType.java:231-234、GameServer.java:1012；E2E spike-mp 2026-09-26 實機驗證）。
+-- 檔案都在 <cacheDir>/Lua/MinidoracatVehicleSpawnControl/（getFileReader/Writer 的根，LuaManager.java:5906-5932,6683-6715）。
 if isClient() then return end
 require "MinidoracatVehicleSpawnControl/MVSC_Core"
 
@@ -92,10 +92,10 @@ function S.collectScripts()
 end
 
 -- 世界上不留 3D 預覽的代理車種。代理只會因為頂替（載入的車記著已不存在的車種，多半是拿掉車輛 MOD 後的舊車，
--- chooseRandomScript 從全部車種隨機挑，BaseVehicle.java:1584-1608）或管理員生車進到世界；客戶端用自己記憶體裡同名的
+-- chooseRandomScript 從全部車種隨機挑，BaseVehicle.java:1596-1620）或管理員生車進到世界；客戶端用自己記憶體裡同名的
 -- 車種畫世界上的車，預覽改過的那一號會讓那位管理員看到幻影車（2026-10-06 E2E proxy-overlap）。
--- 每台車加入世界都會觸發 OnSpawnVehicleStart（生成與從存檔載入：IsoChunk.java:3773、VehiclesDB2.java:519,582
--- → BaseVehicle.addToWorld :7964 → createPhysics :811），建物理之前照原版的分法重挑：零輪的換成燒毀車，有輪的
+-- 每台車加入世界都會觸發 OnSpawnVehicleStart（生成與從存檔載入：IsoChunk.java:3772、VehiclesDB2.java:522,585
+-- → BaseVehicle.addToWorld :8013 → createPhysics :818），建物理之前照原版的分法重挑：零輪的換成燒毀車，有輪的
 -- （單人預覽過的代理）換成一般車。
 local pools
 function S.replacePreviewVehicle(vehicle)

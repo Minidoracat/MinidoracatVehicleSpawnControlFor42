@@ -60,7 +60,7 @@ if ISAdminPanelUI then
     end
 end
 
--- 單人：原版管理面板只在多人建立（ISEquippedItem.lua:905），改在地上按右鍵的選單加一項（使用者 2026-10-03 選定）。
+-- 單人：原版管理面板只在多人建立（ISEquippedItem.lua:906），改在地上按右鍵的選單加一項（使用者 2026-10-03 選定）。
 -- 本機玩家就是擁有者，不另檢查權限（伺服器端 canAdmin 在非伺服器同樣放行）。
 -- 事件參數 (playerNum, context, worldobjects, test)：ISWorldObjectContextMenu.lua:213；test 是手把的預檢，
 -- 只問有沒有選項（:122-126,216），不參與。addOption(name, target, onSelect)：ISContextMenu.lua:873-887，點選時呼叫 onSelect(target)（:70）。

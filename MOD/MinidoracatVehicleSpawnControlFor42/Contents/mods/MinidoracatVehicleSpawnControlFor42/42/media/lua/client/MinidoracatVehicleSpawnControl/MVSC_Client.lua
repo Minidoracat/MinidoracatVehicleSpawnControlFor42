@@ -115,6 +115,7 @@ C.handlers = {
         end
     end,
     denied = function(args) emit("denied", args) end,
+    spawnResult = function(args) emit("spawnResult", args) end,
 }
 
 function C.onServerCommand(module, command, args)
@@ -160,6 +161,18 @@ end
 
 function C.restore(revision)
     C.send("restore", { revision = revision })
+end
+
+-- 生成到身邊另要 ManipulateVehicle（同原版 /addvehicle）；按鈕停用只是方便，伺服器 N.canSpawn 每次重查
+function C.canSpawn()
+    if not isClient() then return true end
+    local p = getPlayer()
+    local role = p and p:getRole()
+    return role ~= nil and role:hasCapability(Capability.ManipulateVehicle)
+end
+
+function C.spawn(full, skin)
+    C.send("spawn", { full = full, skin = skin })
 end
 
 -- 草稿轉成 validate 結構才能交給 build；草稿只會由面板產生，驗證失敗代表程式錯
