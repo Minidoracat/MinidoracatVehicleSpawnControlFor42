@@ -17,6 +17,7 @@
 [h3]🔄 變更[/h3]
 [list]
 [*] [b]支援 Project Zomboid 42.22.2[/b]：在 42.22.2 的單人與多人伺服器重新驗過面板、3D 預覽、設定檔同步、停車場補車與權限檢查，更新後不用改任何設定
+[*] Server config files saved as "UTF-8 with BOM" (Notepad, Windows PowerShell 5.1, some editors) now load normally. Before, the whole file was treated as broken: the server started with the vanilla spawn mix and ignored later edits.
 [/list]
 
 [h3]🔧 修正[/h3]
