@@ -218,6 +218,10 @@ end
 
 function M.jsonDecode(s)
     if type(s) ~= "string" then return nil, "not a string" end
+    -- 開頭的 BOM 先去掉（記事本、PowerShell 5.1 會寫），不然整份設定被當成 JSON 錯誤、開服退回原始分布：
+    -- Kahlua 的 getFileReader 讀到單一字元 U+FEFF（Java 不去 BOM），PUC Lua 或其他讀法是三個位元組
+    if string.sub(s, 1, 3) == "\239\187\191" then s = string.sub(s, 4)
+    elseif string.byte(s, 1) == 65279 then s = string.sub(s, 2) end
     local value, np = decodeValue(s, 1)
     if type(np) ~= "number" then return nil, np end
     np = skipSpace(s, np)

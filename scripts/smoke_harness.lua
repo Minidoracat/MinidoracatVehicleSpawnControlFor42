@@ -291,6 +291,30 @@ fire("OnInitGlobalModData", false)
 check(resets == before + 1 and live("parkingstall")["Base.CarNormal"].spawnChance == 20, "用原始分布啟動並 Reset")
 check(readJson(DIR .. "status.json").ok == false and readJson(DIR .. "catalog.json") ~= nil, "狀態回報錯誤，目錄仍產生")
 
+print("情境八之二：config.json 開頭有 BOM（記事本、PowerShell 5.1 會寫）開服與輪詢照常套用")
+-- Kahlua 的字串是 UTF-16，BOM 讀進來是一個字元 U+FEFF：以 "\1" 開頭的文字假裝第一個字元是它
+local realByte = string.byte
+local function asKahlua(fn)
+    string.byte = function(str, i, ...)
+        if (i == nil or i == 1) and realByte(str, 1) == 1 then return 65279 end
+        return realByte(str, i, ...)
+    end
+    local ok, err = pcall(fn)
+    string.byte = realByte
+    if not ok then error(err, 0) end
+end
+for _, bom in ipairs({ { "\239\187\191", "UTF-8 三位元組", function(fn) fn() end }, { "\1", "Kahlua 的 U+FEFF", asKahlua } }) do
+    local prefix, label, run = bom[1], bom[2], bom[3]
+    freshDistribution()
+    FS[DIR .. "config.json"] = prefix .. M.jsonEncode({ zones = { parkingstall = { spawnRate = 30 } } }, true)
+    S.base = nil
+    run(function() fire("OnInitGlobalModData", false) end)
+    check(readJson(DIR .. "status.json").ok == true and VehicleZoneDistribution.parkingstall.spawnRate == 30, label .. "：開服套用，不退回原始分布")
+    FS[DIR .. "config.json"] = prefix .. M.jsonEncode({ zones = { parkingstall = { spawnRate = 40 } } }, true)
+    run(function() advance(61000) end)
+    check(readJson(DIR .. "status.json").ok == true and VehicleZoneDistribution.parkingstall.spawnRate == 40, label .. "：輪詢套用")
+end
+
 print("情境九：JSON 編解碼往返")
 local round = M.jsonDecode(M.jsonEncode({ a = { 1, 2 }, b = "中文\n\"x\"", c = 0.25, d = {} }, true))
 check(round and round.a[2] == 2 and round.b == "中文\n\"x\"" and round.c == 0.25, "縮排輸出可解回原值")
