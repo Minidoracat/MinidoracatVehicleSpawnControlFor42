@@ -1,12 +1,12 @@
-[h1]Minidoracat Vehicle Spawn Control for B42 42.22.2-0.5.1[/h1]
-[i]2026-11-25[/i]
+[h1]Minidoracat Vehicle Spawn Control for B42 42.22.2-0.5.2[/h1]
+[i]2026-11-27[/i]
 
 [b]English summary[/b]
 [list]
-[*] Server config files saved as "UTF-8 with BOM" (Notepad, Windows PowerShell 5.1, some editors) now load normally. Before, the whole file was treated as broken: the server started with the vanilla spawn mix and ignored later edits.
+[*] Preventive fix: a few list sorts in the admin panel and on the server could, in rare cases, pick up a leftover value and sort wrongly or stop. No player reports and not reproduced; they now always use the default order.
 [/list]
 
 [h3]🔧 修正[/h3]
 [list]
-[*] [b]設定檔存成「UTF-8 含 BOM」時整份設定沒有生效[/b]：從第一版起，用記事本選「UTF-8 with BOM」、Windows PowerShell 5.1 或部分編輯器存的設定檔，開頭會多一個看不見的 BOM 標記，整份設定被當成格式錯誤：伺服器開啟時改用原版的生車分布（你的設定一項都沒套用），執行中改檔則一直保留舊設定。現在會先略過這個標記，照常套用
+[*] [b]預防性修正：清單排序在少數情況下可能出錯[/b]：管理面板的車款、區域、群組清單，以及伺服器整理設定錯誤、警告與新車清單時，有幾處排序沒有指定比較方式；遊戲不保證這時會用預設的比較方式，少數情況可能拿到殘留的值，讓排序出錯或中斷。目前沒有玩家回報，也沒有實際重現；現在這幾處一定用預設的比較方式
 [/list]
