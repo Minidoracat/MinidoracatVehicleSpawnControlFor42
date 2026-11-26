@@ -4,8 +4,9 @@
 MinidoracatVehicleSpawnControl = MinidoracatVehicleSpawnControl or {}
 local M = MinidoracatVehicleSpawnControl
 
--- 插入排序：清單都是區域名／腳本名，數百筆以內
-function M.sortSafe(list, less)
+-- 插入排序：清單都是區域名／腳本名，數百筆以內。less 選用，用 ... 接：Kahlua 少傳的固定參數不保證是 nil（家族 pitfalls「選用參數用 ... 接」）
+function M.sortSafe(list, ...)
+    local less = ...
     less = less or function(a, b) return a < b end
     for i = 2, #list do
         local v = list[i]

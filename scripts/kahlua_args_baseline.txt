@@ -79,4 +79,3 @@
 2	server/MinidoracatVehicleSpawnControl/MVSC_Server.lua|applyText|2<3
 1	server/MinidoracatVehicleSpawnControl/MVSC_ServerNet.lua|summary|0<1
 4	shared/MinidoracatVehicleSpawnControl/MVSC_Core.lua|checkNumber|2<3
-1	shared/MinidoracatVehicleSpawnControl/MVSC_Json.lua|sortSafe|1<2
