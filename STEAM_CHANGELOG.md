@@ -3,7 +3,7 @@
 
 [b]English summary[/b]
 [list]
-[*] Preventive fix: a few list sorts in the admin panel and on the server could, in rare cases, pick up a leftover value and sort wrongly or stop. No player reports and not reproduced; they now always use the default order.
+[*] Preventive fix: a few list sorts in the admin panel and on the server could rarely pick up a leftover value and sort wrongly or stop. Not reported or reproduced; they now always use the default order.
 [/list]
 
 [h3]🔧 修正[/h3]
